@@ -16,6 +16,7 @@ agent-config-lint = "agent_config_linter.cli:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 120

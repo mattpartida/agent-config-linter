@@ -59,6 +59,16 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 - Small/local/uncensored model risk hints
 - Lethal-trifecta detection
 
+## Unsafe capability-combination checks
+
+Beyond single risky toggles, the linter now flags higher-order combinations that commonly turn prompt injection into real-world impact:
+
+- `prompt_injection_exfiltration_bridge`: untrusted inputs combined with code execution, secrets/credentials access, and network egress.
+- `unattended_dangerous_tools`: autonomous or scheduled runs that can use shell, destructive, or outbound tools without explicit approvals.
+- `privileged_infra_control`: Docker/Kubernetes/cloud/IaC-style controls combined with credentials and network egress.
+
+These checks are intentionally conservative: they are meant to catch configs that deserve human review before being used in an autonomous runtime.
+
 ## Development
 
 ```bash

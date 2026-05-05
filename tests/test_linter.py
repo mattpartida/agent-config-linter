@@ -49,6 +49,60 @@ class LinterTests(unittest.TestCase):
         self.assertFalse(report["signals"]["lethal_trifecta"])
         self.assertNotIn("shell_enabled", report["signals"]["enabled_capabilities"])
 
+    def test_detects_prompt_injection_to_exfiltration_bridge(self):
+        config = {
+            "inputs": {"browser": {"enabled": True}, "webhook": True},
+            "tools": {
+                "terminal": {"enabled": True},
+                "filesystem": {"enabled": True, "mode": "rw", "paths": ["~/projects"]},
+                "http": {"enabled": True, "methods": ["POST"]},
+            },
+            "secrets": {"env": True, "api_keys": True},
+        }
+
+        report = lint_config(config)
+
+        self.assertEqual(report["risk_level"], "critical")
+        self.assertIn("prompt_injection_exfiltration_bridge", {finding["id"] for finding in report["findings"]})
+        self.assertIn("code_execution", report["signals"]["enabled_capabilities"])
+        self.assertIn("secrets_access", report["signals"]["enabled_capabilities"])
+        self.assertIn("network_egress", report["signals"]["enabled_capabilities"])
+
+    def test_detects_unattended_dangerous_tool_use_without_approval_gate(self):
+        config = {
+            "autonomy": {"enabled": True, "mode": "unattended"},
+            "schedule": {"enabled": True, "cron": "*/5 * * * *"},
+            "tools": {
+                "shell": True,
+                "delete": True,
+                "github": {"enabled": True, "write": True},
+            },
+        }
+
+        report = lint_config(config)
+
+        self.assertEqual(report["risk_level"], "critical")
+        self.assertIn("unattended_dangerous_tools", {finding["id"] for finding in report["findings"]})
+        self.assertIn("unattended_autonomy", report["signals"]["enabled_capabilities"])
+        self.assertIn("destructive_actions", report["signals"]["enabled_capabilities"])
+
+    def test_detects_privileged_infra_control_with_credentials_and_network(self):
+        config = {
+            "tools": {
+                "kubernetes": {"enabled": True, "namespace": "*"},
+                "docker": {"enabled": True, "socket": "/var/run/docker.sock"},
+                "http": {"enabled": True},
+            },
+            "credentials": {"cloud": True, "kubeconfig": True},
+        }
+
+        report = lint_config(config)
+
+        self.assertEqual(report["risk_level"], "critical")
+        self.assertIn("privileged_infra_control", {finding["id"] for finding in report["findings"]})
+        self.assertIn("privileged_infra", report["signals"]["enabled_capabilities"])
+        self.assertIn("credentials_access", report["signals"]["enabled_capabilities"])
+
     def test_cli_emits_json_report(self):
         from agent_config_linter.cli import run
 

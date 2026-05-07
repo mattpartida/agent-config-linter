@@ -30,6 +30,8 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 
 ```bash
 agent-config-lint path/to/agent.json --format json
+agent-config-lint path/to/agent.json --format markdown
+agent-config-lint path/to/agent.json --format sarif > agent-config-linter.sarif
 ```
 
 Output includes:
@@ -38,8 +40,14 @@ Output includes:
 - `score`
 - `signals.lethal_trifecta`
 - `signals.enabled_capabilities`
-- structured `findings`
+- structured `findings`, including stable `rule_id` and `rule_name` fields
 - `recommended_next_actions`
+
+Formats:
+
+- `json`: full machine-readable report.
+- `markdown`: human-readable report for PR comments, issues, or chat handoff.
+- `sarif`: GitHub code scanning compatible report.
 
 ## Example
 
@@ -69,6 +77,22 @@ Beyond single risky toggles, the linter now flags higher-order combinations that
 
 These checks are intentionally conservative: they are meant to catch configs that deserve human review before being used in an autonomous runtime.
 
+## Rule IDs
+
+Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog.
+
+| Rule ID | Finding ID | Default severity |
+| --- | --- | --- |
+| ACL-001 | `shell_enabled` | high |
+| ACL-002 | `filesystem_broad_access` | high |
+| ACL-003 | `browser_private_network` | high |
+| ACL-004 | `lethal_trifecta` | critical |
+| ACL-005 | `prompt_injection_exfiltration_bridge` | critical |
+| ACL-006 | `unattended_dangerous_tools` | critical |
+| ACL-007 | `privileged_infra_control` | critical |
+| ACL-008 | `approval_gate_missing` | critical |
+| ACL-009 | `weak_model_risk` | medium |
+
 ## Development
 
 ```bash
@@ -81,9 +105,7 @@ CI also runs `ruff`, `compileall`, and `pytest`.
 ## Roadmap
 
 - YAML/TOML support
-- SARIF output for GitHub code scanning
 - Recursive directory discovery
 - Hermes/OpenClaw config schema fixtures
-- Rule IDs with stable docs pages
 - Baseline/suppressions file
-- Markdown reports
+- GitHub Actions example that uploads SARIF to code scanning

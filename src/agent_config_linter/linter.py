@@ -2,6 +2,18 @@
 
 SEVERITIES = ("critical", "high", "medium", "low")
 
+RULE_IDS = {
+    "shell_enabled": ("ACL-001", "shell-enabled"),
+    "filesystem_broad_access": ("ACL-002", "filesystem-broad-access"),
+    "browser_private_network": ("ACL-003", "browser-private-network"),
+    "lethal_trifecta": ("ACL-004", "lethal-trifecta"),
+    "prompt_injection_exfiltration_bridge": ("ACL-005", "prompt-injection-exfiltration-bridge"),
+    "unattended_dangerous_tools": ("ACL-006", "unattended-dangerous-tools"),
+    "privileged_infra_control": ("ACL-007", "privileged-infra-control"),
+    "approval_gate_missing": ("ACL-008", "approval-gate-missing"),
+    "weak_model_risk": ("ACL-009", "weak-model-risk"),
+}
+
 
 def is_enabled(value):
     """Return True when a scalar/dict config value represents an enabled feature."""
@@ -210,9 +222,12 @@ def _tool_enabled(config, names):
 
 
 def _add(findings, finding_id, severity, title, evidence, remediation):
+    rule_id, rule_name = RULE_IDS.get(finding_id, (finding_id, finding_id.replace("_", "-")))
     findings.append(
         {
             "id": finding_id,
+            "rule_id": rule_id,
+            "rule_name": rule_name,
             "severity": severity,
             "title": title,
             "evidence": evidence,

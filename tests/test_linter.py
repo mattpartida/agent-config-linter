@@ -131,6 +131,44 @@ class LinterTests(unittest.TestCase):
         self.assertTrue(parsed["errors"])
         self.assertIn("invalid", parsed["errors"][0]["message"].lower())
 
+    def test_findings_include_stable_rule_ids(self):
+        report = lint_config({"tools": {"shell": True}})
+
+        shell_finding = next(finding for finding in report["findings"] if finding["id"] == "shell_enabled")
+
+        self.assertEqual(shell_finding["rule_id"], "ACL-001")
+        self.assertEqual(shell_finding["rule_name"], "shell-enabled")
+
+    def test_cli_emits_markdown_report(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+
+            exit_code, output = run([str(config_path), "--format", "markdown"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("# Agent Config Linter Report", output)
+        self.assertIn("## agent.json", output)
+        self.assertIn("| ACL-001 | high | shell_enabled | Shell execution is enabled |", output)
+
+    def test_cli_emits_sarif_report(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+
+            exit_code, output = run([str(config_path), "--format", "sarif"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        self.assertEqual(parsed["version"], "2.1.0")
+        self.assertEqual(parsed["runs"][0]["tool"]["driver"]["name"], "agent-config-linter")
+        self.assertIn("ACL-001", {rule["id"] for rule in parsed["runs"][0]["tool"]["driver"]["rules"]})
+        self.assertEqual(parsed["runs"][0]["results"][0]["ruleId"], "ACL-001")
+
 
 if __name__ == "__main__":
     unittest.main()

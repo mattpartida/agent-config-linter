@@ -10,6 +10,8 @@ import yaml
 
 from .linter import lint_config
 
+SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
+
 SARIF_LEVELS = {
     "critical": "error",
     "high": "error",
@@ -34,6 +36,17 @@ def _load_config(path):
     except yaml.YAMLError as exc:
         raise ValueError(f"Invalid YAML: {exc}") from exc
     raise ValueError(f"Unsupported config extension: {suffix or '(none)'}")
+
+
+def _expand_path(path):
+    if path.is_dir():
+        config_paths = sorted(
+            child for child in path.rglob("*") if child.is_file() and child.suffix.lower() in SUPPORTED_SUFFIXES
+        )
+        if not config_paths:
+            raise ValueError(f"No supported config files found under directory: {path}")
+        return config_paths
+    return [path]
 
 
 def _markdown_escape(value):
@@ -151,7 +164,7 @@ def _format_result(result, output_format):
 
 def run(argv=None):
     parser = argparse.ArgumentParser(description="Lint autonomous-agent config files for risky capability combinations")
-    parser.add_argument("paths", nargs="+", help="JSON config file paths")
+    parser.add_argument("paths", nargs="+", help="Config file or directory paths. Directories are scanned recursively for JSON, YAML, and TOML files.")
     parser.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
     args = parser.parse_args(argv)
 
@@ -159,18 +172,30 @@ def run(argv=None):
     exit_code = 0
 
     for raw_path in args.paths:
-        path = Path(raw_path)
+        input_path = Path(raw_path)
         try:
-            config = _load_config(path)
-            report = lint_config(config)
-            report["path"] = str(path)
-            result["files"].append(report)
+            config_paths = _expand_path(input_path)
         except OSError as exc:
             exit_code = 2
-            result["errors"].append({"path": str(path), "message": str(exc)})
+            result["errors"].append({"path": str(input_path), "message": str(exc)})
+            continue
         except ValueError as exc:
             exit_code = 2
-            result["errors"].append({"path": str(path), "message": str(exc)})
+            result["errors"].append({"path": str(input_path), "message": str(exc)})
+            continue
+
+        for path in config_paths:
+            try:
+                config = _load_config(path)
+                report = lint_config(config)
+                report["path"] = str(path)
+                result["files"].append(report)
+            except OSError as exc:
+                exit_code = 2
+                result["errors"].append({"path": str(path), "message": str(exc)})
+            except ValueError as exc:
+                exit_code = 2
+                result["errors"].append({"path": str(path), "message": str(exc)})
 
     return exit_code, _format_result(result, args.format)
 

@@ -208,6 +208,39 @@ class LinterTests(unittest.TestCase):
         parsed = json.loads(output)
         self.assertIn("Unsupported config extension", parsed["errors"][0]["message"])
 
+    def test_cli_recursively_lints_supported_files_in_directory(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "agent.json").write_text(json.dumps({"tools": {"shell": True}}))
+            nested = root / "nested"
+            nested.mkdir()
+            (nested / "agent.yaml").write_text("tools:\n  browser:\n    enabled: true\n    private_network: true\n")
+            (nested / "notes.txt").write_text("not a config")
+
+            exit_code, output = run([str(root), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        self.assertEqual([Path(report["path"]).name for report in parsed["files"]], ["agent.json", "agent.yaml"])
+        finding_ids = {finding["id"] for report in parsed["files"] for finding in report["findings"]}
+        self.assertIn("shell_enabled", finding_ids)
+        self.assertIn("browser_private_network", finding_ids)
+
+    def test_cli_reports_error_for_directory_without_supported_configs(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "README.md").write_text("no configs here")
+
+            exit_code, output = run([str(root), "--format", "json"])
+
+        self.assertEqual(exit_code, 2)
+        parsed = json.loads(output)
+        self.assertIn("No supported config files found", parsed["errors"][0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

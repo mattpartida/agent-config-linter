@@ -31,7 +31,7 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 ```bash
 agent-config-lint path/to/agent.json --format json
 agent-config-lint path/to/agent.yaml --format markdown
-agent-config-lint path/to/agent.toml --format sarif > agent-config-linter.sarif
+agent-config-lint path/to/config-directory --format sarif > agent-config-linter.sarif
 ```
 
 Output includes:
@@ -45,7 +45,8 @@ Output includes:
 
 Formats:
 
-- Config inputs: `.json`, `.yaml`, `.yml`, and `.toml`.
+- Config inputs: `.json`, `.yaml`, `.yml`, and `.toml` files.
+- Directory inputs: scanned recursively for supported config files; unsupported files are ignored during directory scans.
 - Report output `json`: full machine-readable report.
 - Report output `markdown`: human-readable report for PR comments, issues, or chat handoff.
 - Report output `sarif`: GitHub code scanning compatible report.
@@ -107,7 +108,6 @@ CI also runs `ruff`, `compileall`, and `pytest`.
 
 ## Roadmap
 
-- Recursive directory discovery
 - Hermes/OpenClaw config schema fixtures
 - Baseline/suppressions file
 - GitHub Actions example that uploads SARIF to code scanning

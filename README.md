@@ -57,7 +57,18 @@ Formats:
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.yaml --format markdown
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.toml --format sarif
+PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format json
 ```
+
+## Config-shape fixtures
+
+The `examples/config-shapes/` directory contains representative Hermes/OpenClaw-style shapes used by tests and smoke checks:
+
+- `hermes-discord-shared.yaml`: shared Discord/group-chat agent with terminal, files, secrets, persistence, and network egress.
+- `hermes-personal-local.yaml`: personal local runtime with a local model and broad filesystem access.
+- `openclaw-browser-agent.json`: OpenClaw-style browser/web agent with private-network browser access.
+
+Use these fixtures as starting points when adding schema-specific rules or testing integrations.
 
 ## MVP checks
 
@@ -108,6 +119,5 @@ CI also runs `ruff`, `compileall`, and `pytest`.
 
 ## Roadmap
 
-- Hermes/OpenClaw config schema fixtures
 - Baseline/suppressions file
 - GitHub Actions example that uploads SARIF to code scanning

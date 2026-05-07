@@ -1,0 +1,20 @@
+# Hermes-style personal local agent shape.
+# Intentionally high-risk: local model plus broad writable filesystem access.
+agent:
+  name: personal-local-workstation
+runtime:
+  local: true
+model: local-7b-no-guard
+tools:
+  file:
+    enabled: true
+    mode: rw
+    roots:
+      - "~"
+  terminal:
+    enabled: false
+memory:
+  enabled: true
+approvals:
+  shell: true
+  filesystem: true

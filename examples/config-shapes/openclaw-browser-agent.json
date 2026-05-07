@@ -1,0 +1,31 @@
+{
+  "agent": {
+    "name": "openclaw-browser-agent"
+  },
+  "openclaw": {
+    "browser": {
+      "enabled": true,
+      "allowPrivateNetwork": true,
+      "localhost": true
+    },
+    "web": {
+      "enabled": true
+    },
+    "exec": {
+      "security": "restricted"
+    }
+  },
+  "inputs": {
+    "webhook": true,
+    "rss": true
+  },
+  "tools": {
+    "browser": {
+      "enabled": true,
+      "private_network": true
+    },
+    "http": {
+      "enabled": true
+    }
+  }
+}

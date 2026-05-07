@@ -1,0 +1,41 @@
+# Hermes-style shared Discord agent shape.
+# Intentionally high-risk: untrusted group chat plus terminal, secrets, filesystem, and network egress.
+agent:
+  name: discord-shared-research-agent
+bindings:
+  discord:
+    enabled: true
+    mode: group
+    channel: "#general"
+inputs:
+  discord:
+    enabled: true
+  web:
+    enabled: true
+enabled_toolsets:
+  - terminal
+  - file
+  - browser
+  - web
+  - send_message
+tools:
+  filesystem:
+    enabled: true
+    mode: rw
+    roots:
+      - "~/projects"
+  http:
+    enabled: true
+    methods:
+      - GET
+      - POST
+secrets:
+  env: true
+  api_keys: true
+memory:
+  enabled: true
+  write: true
+approvals:
+  shell: false
+  send_message: false
+model: gpt-5.2

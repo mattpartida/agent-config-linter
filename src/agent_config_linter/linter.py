@@ -212,12 +212,21 @@ def _approval_configured(config):
 
 def _tool_enabled(config, names):
     tools = config.get("tools", {}) if isinstance(config, dict) else {}
-    names = {name.lower() for name in names}
+    names = {name.lower().replace("_", "-") for name in names}
     if isinstance(tools, dict):
         for key, value in tools.items():
             normalized = str(key).lower().replace("_", "-")
-            if normalized in names or normalized.replace("-", "_") in names:
+            if normalized in names:
                 return is_enabled(value)
+    for toolset_key in ("enabled_toolsets", "toolsets", "enabled-tools", "enabled_tools"):
+        toolsets = config.get(toolset_key, []) if isinstance(config, dict) else []
+        if isinstance(toolsets, str):
+            toolsets = [toolsets]
+        if isinstance(toolsets, list):
+            for tool_name in toolsets:
+                normalized = str(tool_name).lower().replace("_", "-")
+                if normalized in names:
+                    return True
     return False
 
 

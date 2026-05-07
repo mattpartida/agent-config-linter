@@ -1,0 +1,23 @@
+inputs:
+  web: true
+  discord:
+    enabled: true
+tools:
+  shell:
+    enabled: true
+  filesystem:
+    enabled: true
+    roots:
+      - /
+  browser:
+    enabled: true
+    private_network: true
+  email:
+    enabled: true
+memory:
+  enabled: true
+  write: true
+approvals:
+  send_email: false
+  shell: false
+model: small-local-7b

@@ -2,7 +2,7 @@
 
 Dependency-light risk linter for autonomous-agent configuration files.
 
-The first MVP scans JSON configs for unsafe capability combinations in agent runtimes: untrusted inputs, private data access, outbound actions, persistence, shell/filesystem/browser access, weak approval gates, and weaker model choices.
+The first MVP scans JSON, YAML, and TOML configs for unsafe capability combinations in agent runtimes: untrusted inputs, private data access, outbound actions, persistence, shell/filesystem/browser access, weak approval gates, and weaker model choices.
 
 ## Why
 
@@ -30,8 +30,8 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 
 ```bash
 agent-config-lint path/to/agent.json --format json
-agent-config-lint path/to/agent.json --format markdown
-agent-config-lint path/to/agent.json --format sarif > agent-config-linter.sarif
+agent-config-lint path/to/agent.yaml --format markdown
+agent-config-lint path/to/agent.toml --format sarif > agent-config-linter.sarif
 ```
 
 Output includes:
@@ -45,14 +45,17 @@ Output includes:
 
 Formats:
 
-- `json`: full machine-readable report.
-- `markdown`: human-readable report for PR comments, issues, or chat handoff.
-- `sarif`: GitHub code scanning compatible report.
+- Config inputs: `.json`, `.yaml`, `.yml`, and `.toml`.
+- Report output `json`: full machine-readable report.
+- Report output `markdown`: human-readable report for PR comments, issues, or chat handoff.
+- Report output `sarif`: GitHub code scanning compatible report.
 
 ## Example
 
 ```bash
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.yaml --format markdown
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.toml --format sarif
 ```
 
 ## MVP checks
@@ -104,7 +107,6 @@ CI also runs `ruff`, `compileall`, and `pytest`.
 
 ## Roadmap
 
-- YAML/TOML support
 - Recursive directory discovery
 - Hermes/OpenClaw config schema fixtures
 - Baseline/suppressions file

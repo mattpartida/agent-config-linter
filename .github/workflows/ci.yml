@@ -12,8 +12,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install test tools
-        run: python -m pip install --upgrade pip pytest ruff
+      - name: Install package and test tools
+        run: python -m pip install --upgrade pip pytest ruff -e .
       - name: Lint
         run: ruff check .
       - name: Compile

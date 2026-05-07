@@ -169,6 +169,45 @@ class LinterTests(unittest.TestCase):
         self.assertIn("ACL-001", {rule["id"] for rule in parsed["runs"][0]["tool"]["driver"]["rules"]})
         self.assertEqual(parsed["runs"][0]["results"][0]["ruleId"], "ACL-001")
 
+    def test_cli_lints_toml_config(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.toml"
+            config_path.write_text('[tools]\nshell = true\n')
+
+            exit_code, output = run([str(config_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        self.assertIn("ACL-001", {finding["rule_id"] for finding in parsed["files"][0]["findings"]})
+
+    def test_cli_lints_yaml_config(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.yaml"
+            config_path.write_text('tools:\n  shell: true\n')
+
+            exit_code, output = run([str(config_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        self.assertIn("ACL-001", {finding["rule_id"] for finding in parsed["files"][0]["findings"]})
+
+    def test_cli_rejects_unsupported_config_extension(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.txt"
+            config_path.write_text('{"tools": {"shell": true}}')
+
+            exit_code, output = run([str(config_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 2)
+        parsed = json.loads(output)
+        self.assertIn("Unsupported config extension", parsed["errors"][0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

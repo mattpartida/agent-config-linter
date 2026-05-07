@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Lint autonomous-agent configs for unsafe tool and trust-boundary combinations"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["PyYAML>=6.0"]
 
 [project.scripts]
 agent-config-lint = "agent_config_linter.cli:main"

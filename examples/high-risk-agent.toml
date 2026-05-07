@@ -1,0 +1,29 @@
+model = "small-local-7b"
+
+[inputs]
+web = true
+
+[inputs.discord]
+enabled = true
+
+[tools.shell]
+enabled = true
+
+[tools.filesystem]
+enabled = true
+roots = ["/"]
+
+[tools.browser]
+enabled = true
+private_network = true
+
+[tools.email]
+enabled = true
+
+[memory]
+enabled = true
+write = true
+
+[approvals]
+send_email = false
+shell = false

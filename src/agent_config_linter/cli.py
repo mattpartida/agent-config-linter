@@ -3,7 +3,10 @@
 import argparse
 import json
 import sys
+import tomllib
 from pathlib import Path
+
+import yaml
 
 from .linter import lint_config
 
@@ -15,11 +18,22 @@ SARIF_LEVELS = {
 }
 
 
-def _load_json(path):
+def _load_config(path):
+    suffix = path.suffix.lower()
     try:
-        return json.loads(path.read_text())
+        if suffix == ".json":
+            return json.loads(path.read_text())
+        if suffix == ".toml":
+            return tomllib.loads(path.read_text())
+        if suffix in {".yaml", ".yml"}:
+            return yaml.safe_load(path.read_text()) or {}
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON: {exc}") from exc
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"Invalid TOML: {exc}") from exc
+    except yaml.YAMLError as exc:
+        raise ValueError(f"Invalid YAML: {exc}") from exc
+    raise ValueError(f"Unsupported config extension: {suffix or '(none)'}")
 
 
 def _markdown_escape(value):
@@ -147,7 +161,7 @@ def run(argv=None):
     for raw_path in args.paths:
         path = Path(raw_path)
         try:
-            config = _load_json(path)
+            config = _load_config(path)
             report = lint_config(config)
             report["path"] = str(path)
             result["files"].append(report)

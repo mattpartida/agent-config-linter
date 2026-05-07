@@ -241,6 +241,57 @@ class LinterTests(unittest.TestCase):
         parsed = json.loads(output)
         self.assertIn("No supported config files found", parsed["errors"][0]["message"])
 
+    def test_cli_baseline_suppresses_matching_rule_for_path(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+            baseline_path = root / "agent-config-linter-baseline.json"
+            baseline_path.write_text(
+                json.dumps(
+                    {
+                        "suppressions": [
+                            {
+                                "path": str(config_path),
+                                "rule_id": "ACL-001",
+                                "reason": "Known shell access in local development sandbox.",
+                            }
+                        ]
+                    }
+                )
+            )
+
+            exit_code, output = run([str(config_path), "--baseline", str(baseline_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        report = parsed["files"][0]
+        self.assertEqual(report["summary"]["high"], 0)
+        self.assertNotIn("ACL-001", {finding["rule_id"] for finding in report["findings"]})
+        self.assertEqual(report["suppressed_summary"], {"critical": 0, "high": 1, "medium": 0, "low": 0})
+        self.assertEqual(report["suppressed_findings"][0]["rule_id"], "ACL-001")
+        self.assertEqual(report["suppressed_findings"][0]["suppression"]["reason"], "Known shell access in local development sandbox.")
+
+    def test_cli_baseline_does_not_suppress_different_path(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+            baseline_path = root / "agent-config-linter-baseline.json"
+            baseline_path.write_text(json.dumps({"suppressions": [{"path": "other.json", "rule_id": "ACL-001"}]}))
+
+            exit_code, output = run([str(config_path), "--baseline", str(baseline_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        report = parsed["files"][0]
+        self.assertIn("ACL-001", {finding["rule_id"] for finding in report["findings"]})
+        self.assertEqual(report["suppressed_findings"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

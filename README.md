@@ -32,6 +32,7 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 agent-config-lint path/to/agent.json --format json
 agent-config-lint path/to/agent.yaml --format markdown
 agent-config-lint path/to/config-directory --format sarif > agent-config-linter.sarif
+agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --format json
 ```
 
 Output includes:
@@ -41,6 +42,7 @@ Output includes:
 - `signals.lethal_trifecta`
 - `signals.enabled_capabilities`
 - structured `findings`, including stable `rule_id` and `rule_name` fields
+- optional `suppressed_findings` and `suppressed_summary` when a baseline is provided
 - `recommended_next_actions`
 
 Formats:
@@ -58,7 +60,26 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.yaml --format markdown
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.toml --format sarif
 PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --baseline examples/agent-config-linter-baseline.json --format json
 ```
+
+## Baselines and suppressions
+
+Use `--baseline` to suppress accepted findings while keeping an audit trail in JSON output. Baselines can be JSON, YAML, or TOML files with a `suppressions` list:
+
+```json
+{
+  "suppressions": [
+    {
+      "path": "examples/high-risk-agent.json",
+      "rule_id": "ACL-009",
+      "reason": "Example fixture intentionally uses a weak/local model to demonstrate the rule."
+    }
+  ]
+}
+```
+
+Each suppression must include `rule_id`, `finding_id`, or `id`, plus an optional `path` glob. Matching findings are removed from `findings` and reported under `suppressed_findings` with `suppressed_summary` counts.
 
 ## Config-shape fixtures
 
@@ -119,5 +140,4 @@ CI also runs `ruff`, `compileall`, and `pytest`.
 
 ## Roadmap
 
-- Baseline/suppressions file
 - GitHub Actions example that uploads SARIF to code scanning

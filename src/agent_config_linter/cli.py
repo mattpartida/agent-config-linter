@@ -1,6 +1,7 @@
 """Command-line interface for agent-config-linter."""
 
 import argparse
+import fnmatch
 import json
 import sys
 import tomllib
@@ -9,6 +10,8 @@ from pathlib import Path
 import yaml
 
 from .linter import lint_config
+
+SEVERITIES = ("critical", "high", "medium", "low")
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
@@ -38,6 +41,19 @@ def _load_config(path):
     raise ValueError(f"Unsupported config extension: {suffix or '(none)'}")
 
 
+def _load_baseline(path):
+    baseline = _load_config(path)
+    if not isinstance(baseline, dict):
+        raise ValueError("Baseline must be a mapping with a suppressions list")
+    suppressions = baseline.get("suppressions", [])
+    if not isinstance(suppressions, list):
+        raise ValueError("Baseline suppressions must be a list")
+    for suppression in suppressions:
+        if not isinstance(suppression, dict):
+            raise ValueError("Each baseline suppression must be a mapping")
+    return suppressions
+
+
 def _expand_path(path):
     if path.is_dir():
         config_paths = sorted(
@@ -51,6 +67,73 @@ def _expand_path(path):
 
 def _markdown_escape(value):
     return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def _path_matches(pattern, path):
+    normalized_pattern = str(pattern).replace("\\", "/")
+    normalized_path = str(path).replace("\\", "/")
+    path_name = Path(path).name
+    return (
+        normalized_pattern in {normalized_path, path_name}
+        or fnmatch.fnmatch(normalized_path, normalized_pattern)
+        or fnmatch.fnmatch(path_name, normalized_pattern)
+    )
+
+
+def _suppression_matches(suppression, path, finding):
+    suppression_path = suppression.get("path", "*")
+    if not _path_matches(suppression_path, path):
+        return False
+
+    rule_id = suppression.get("rule_id")
+    finding_id = suppression.get("finding_id") or suppression.get("id")
+    if rule_id and rule_id != finding.get("rule_id"):
+        return False
+    if finding_id and finding_id != finding.get("id"):
+        return False
+    return bool(rule_id or finding_id)
+
+
+def _risk_from_summary(summary):
+    score = summary["critical"] * 40 + summary["high"] * 15 + summary["medium"] * 5 + summary["low"]
+    if summary["critical"] or score >= 60:
+        return "critical", score
+    if summary["high"] or score >= 25:
+        return "high", score
+    if summary["medium"]:
+        return "medium", score
+    return "low", score
+
+
+def _apply_baseline(report, path, suppressions):
+    remaining_findings = []
+    suppressed_findings = []
+    for finding in report.get("findings", []):
+        matching_suppression = next(
+            (suppression for suppression in suppressions if _suppression_matches(suppression, path, finding)), None
+        )
+        if matching_suppression:
+            suppressed = dict(finding)
+            suppressed["suppression"] = {
+                key: matching_suppression[key]
+                for key in ("path", "rule_id", "finding_id", "id", "reason")
+                if key in matching_suppression
+            }
+            suppressed_findings.append(suppressed)
+        else:
+            remaining_findings.append(finding)
+
+    report["findings"] = remaining_findings
+    report["suppressed_findings"] = suppressed_findings
+    report["summary"] = {
+        severity: sum(1 for finding in remaining_findings if finding["severity"] == severity) for severity in SEVERITIES
+    }
+    report["suppressed_summary"] = {
+        severity: sum(1 for finding in suppressed_findings if finding["severity"] == severity) for severity in SEVERITIES
+    }
+    report["risk_level"], report["score"] = _risk_from_summary(report["summary"])
+    report["recommended_next_actions"] = [finding["remediation"] for finding in remaining_findings[:5]]
+    return report
 
 
 def _format_markdown(result):
@@ -166,10 +249,23 @@ def run(argv=None):
     parser = argparse.ArgumentParser(description="Lint autonomous-agent config files for risky capability combinations")
     parser.add_argument("paths", nargs="+", help="Config file or directory paths. Directories are scanned recursively for JSON, YAML, and TOML files.")
     parser.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
+    parser.add_argument("--baseline", help="JSON, YAML, or TOML file containing accepted finding suppressions")
     args = parser.parse_args(argv)
 
     result = {"schema_version": "0.1", "files": [], "errors": []}
     exit_code = 0
+    suppressions = []
+
+    if args.baseline:
+        baseline_path = Path(args.baseline)
+        try:
+            suppressions = _load_baseline(baseline_path)
+        except OSError as exc:
+            exit_code = 2
+            result["errors"].append({"path": str(baseline_path), "message": str(exc)})
+        except ValueError as exc:
+            exit_code = 2
+            result["errors"].append({"path": str(baseline_path), "message": str(exc)})
 
     for raw_path in args.paths:
         input_path = Path(raw_path)
@@ -189,6 +285,8 @@ def run(argv=None):
                 config = _load_config(path)
                 report = lint_config(config)
                 report["path"] = str(path)
+                if args.baseline:
+                    report = _apply_baseline(report, path, suppressions)
                 result["files"].append(report)
             except OSError as exc:
                 exit_code = 2

@@ -1,0 +1,9 @@
+{
+  "suppressions": [
+    {
+      "path": "examples/high-risk-agent.json",
+      "rule_id": "ACL-009",
+      "reason": "Example fixture intentionally uses a weak/local model to demonstrate the rule."
+    }
+  ]
+}

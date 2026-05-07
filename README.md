@@ -63,6 +63,22 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --baseline examples/agent-config-linter-baseline.json --format json
 ```
 
+## GitHub code scanning
+
+Use the example workflow at [`.github/workflows/agent-config-linter-code-scanning.yml`](.github/workflows/agent-config-linter-code-scanning.yml) to generate SARIF and upload findings to GitHub code scanning:
+
+```yaml
+- name: Generate SARIF report
+  run: agent-config-lint . --format sarif > agent-config-linter.sarif
+
+- name: Upload SARIF to GitHub code scanning
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: agent-config-linter.sarif
+```
+
+For downstream repos, replace `.` with the config file or directory path that should be scanned.
+
 ## Baselines and suppressions
 
 Use `--baseline` to suppress accepted findings while keeping an audit trail in JSON output. Baselines can be JSON, YAML, or TOML files with a `suppressions` list:
@@ -137,7 +153,3 @@ python -m compileall -q src tests
 ```
 
 CI also runs `ruff`, `compileall`, and `pytest`.
-
-## Roadmap
-
-- GitHub Actions example that uploads SARIF to code scanning

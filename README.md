@@ -145,6 +145,59 @@ Findings include stable rule IDs for baselines and CI integrations. See [docs/ru
 | ACL-008 | `approval_gate_missing` | critical |
 | ACL-009 | `weak_model_risk` | medium |
 
+## Roadmap
+
+The MVP is now usable as a local/CI linter. The next roadmap focuses on making findings more precise, easier to adopt in real repos, and safer to run as a security gate.
+
+### 1. Rule precision and evidence paths
+
+- Add JSON/YAML/TOML source-location hints for findings so SARIF can point at the risky field instead of line 1.
+- Include evidence paths in each finding, for example `tools.shell.enabled` or `enabled_toolsets[2]`.
+- Split broad detections into narrower rules where remediation differs, especially filesystem read-all vs write-all access.
+- Add tests that assert findings include deterministic evidence paths for representative nested configs.
+
+### 2. Schema-aware adapters
+
+- Add explicit adapters for Hermes, OpenClaw, and generic OpenAI-compatible agent config shapes.
+- Normalize common aliases into an internal capability map before rule evaluation.
+- Add fixture coverage for approval policies, tool allowlists, per-channel tool exposure, cron jobs, memory, browser private-network access, and outbound messaging.
+- Document which schema fields are supported and which are intentionally ignored.
+
+### 3. Policy and severity configuration
+
+- Add a `--policy` flag for JSON/YAML/TOML policy files.
+- Let teams override severity, disable selected rules, and set org-specific path/tool allowlists.
+- Preserve stable default severities when no policy is supplied.
+- Validate policy files with clear errors before linting configs.
+
+### 4. Baseline lifecycle tooling
+
+- Add a `--generate-baseline` command that writes current findings as suppressions.
+- Add `expires_at`, `owner`, and `ticket` fields to suppression examples and validation.
+- Warn on stale suppressions that no longer match any finding.
+- Support `--fail-on-stale-baseline` for CI cleanup.
+
+### 5. CI and developer-experience polish
+
+- Add documented exit-code modes, including fail on `high` or `critical` findings only.
+- Add `--min-severity` and `--fail-on` flags for staged adoption.
+- Add examples for GitHub Actions, pre-commit, and local make/task runners.
+- Publish a small sample SARIF artifact in docs so users can preview code-scanning output.
+
+### 6. Packaging and distribution
+
+- Add release automation for tagged PyPI publishes.
+- Add version output via `agent-config-lint --version`.
+- Add a changelog and release checklist.
+- Add package metadata classifiers, keywords, and project URLs.
+
+### 7. Security regression corpus
+
+- Build `tests/fixtures/regression/` with known risky and safe configs.
+- Add regression cases for prompt-injection-to-exfiltration bridges, unattended tool use, private-network browser exposure, and weak approval gates.
+- Add safe negative fixtures to reduce false positives.
+- Track rule coverage in docs so new rules require fixture-backed examples.
+
 ## Development
 
 ```bash

@@ -3,6 +3,7 @@
 import argparse
 import fnmatch
 import json
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -136,6 +137,24 @@ def _apply_baseline(report, path, suppressions):
     return report
 
 
+def _source_line_for_evidence(path, evidence_paths):
+    """Best-effort line lookup for SARIF locations from dotted evidence paths."""
+    if not evidence_paths:
+        return 1
+    try:
+        lines = Path(path).read_text().splitlines()
+    except OSError:
+        return 1
+    for evidence_path in evidence_paths:
+        parts = [part.split("[")[0] for part in str(evidence_path).split(".") if part]
+        for key in reversed(parts):
+            key_pattern = re.compile(rf"^\s*(?:[\"']?{re.escape(key)}[\"']?\s*[:=]|\[{re.escape(key)}\])")
+            for line_number, line in enumerate(lines, start=1):
+                if key_pattern.search(line):
+                    return line_number
+    return 1
+
+
 def _format_markdown(result):
     lines = ["# Agent Config Linter Report", ""]
     if result["errors"]:
@@ -196,6 +215,7 @@ def _format_sarif(result):
                     "properties": {"severity": finding["severity"], "finding_id": finding["id"]},
                 },
             )
+            evidence_paths = finding.get("evidence_paths", [])
             sarif_results.append(
                 {
                     "ruleId": rule_id,
@@ -205,11 +225,15 @@ def _format_sarif(result):
                         {
                             "physicalLocation": {
                                 "artifactLocation": {"uri": report["path"]},
-                                "region": {"startLine": 1},
+                                "region": {"startLine": _source_line_for_evidence(report["path"], evidence_paths)},
                             }
                         }
                     ],
-                    "properties": {"finding_id": finding["id"], "remediation": finding["remediation"]},
+                    "properties": {
+                        "finding_id": finding["id"],
+                        "remediation": finding["remediation"],
+                        "evidence_paths": evidence_paths,
+                    },
                 }
             )
 

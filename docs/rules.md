@@ -13,6 +13,7 @@ Stable rule IDs are included in JSON findings and SARIF output so CI systems, ba
 | ACL-007 | `privileged_infra_control` | critical | Infrastructure-control tools have credentials and network egress. |
 | ACL-008 | `approval_gate_missing` | critical | Approval policy disables gates for high-risk actions. |
 | ACL-009 | `weak_model_risk` | medium | Model name suggests small, local, uncensored, or weak-guardrail routing. |
+| ACL-010 | `filesystem_write_access` | high | Filesystem configuration permits write-capable access. |
 
 ## Severity model
 

@@ -41,6 +41,45 @@ class ConfigShapeFixtureTests(unittest.TestCase):
         self.assertIn("browser_private_network", finding_ids)
         self.assertIn("browser_private_network", report["signals"]["enabled_capabilities"])
 
+    def test_hermes_adapter_normalizes_nested_toolsets_and_channels(self):
+        report = lint_config(
+            {
+                "hermes": {
+                    "enabled_toolsets": ["terminal", "web", "send_message"],
+                    "channels": {"discord": {"enabled": True, "mode": "group"}},
+                    "secrets": {"env": True},
+                    "network": {"egress": True},
+                }
+            }
+        )
+
+        finding_ids = {finding["id"] for finding in report["findings"]}
+        self.assertEqual(report["schema"]["adapter"], "hermes")
+        self.assertIn("shell_enabled", finding_ids)
+        self.assertIn("prompt_injection_exfiltration_bridge", finding_ids)
+
+    def test_openclaw_adapter_normalizes_private_network_browser(self):
+        report = lint_config({"openclaw": {"browser": {"enabled": True, "allowPrivateNetwork": True}}})
+
+        finding_ids = {finding["id"] for finding in report["findings"]}
+        self.assertEqual(report["schema"]["adapter"], "openclaw")
+        self.assertIn("browser_private_network", finding_ids)
+
+    def test_openai_adapter_normalizes_tool_array(self):
+        report = lint_config(
+            {
+                "model": "gpt-5.2",
+                "tools": [
+                    {"type": "code_interpreter"},
+                    {"type": "function", "function": {"name": "send_email"}},
+                ],
+            }
+        )
+
+        self.assertEqual(report["schema"]["adapter"], "openai")
+        self.assertIn("shell_enabled", {finding["id"] for finding in report["findings"]})
+        self.assertIn("outbound_actions", report["signals"]["enabled_capabilities"])
+
 
 if __name__ == "__main__":
     unittest.main()

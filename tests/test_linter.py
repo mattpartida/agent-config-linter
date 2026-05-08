@@ -169,6 +169,37 @@ class LinterTests(unittest.TestCase):
         self.assertIn("ACL-001", {rule["id"] for rule in parsed["runs"][0]["tool"]["driver"]["rules"]})
         self.assertEqual(parsed["runs"][0]["results"][0]["ruleId"], "ACL-001")
 
+    def test_findings_include_deterministic_evidence_paths(self):
+        report = lint_config({"tools": {"shell": {"enabled": True}}})
+
+        shell_finding = next(finding for finding in report["findings"] if finding["id"] == "shell_enabled")
+
+        self.assertEqual(shell_finding["evidence_paths"], ["tools.shell"])
+
+    def test_filesystem_write_access_has_narrow_finding(self):
+        report = lint_config({"tools": {"filesystem": {"enabled": True, "mode": "rw", "paths": ["~/project"]}}})
+
+        write_finding = next(finding for finding in report["findings"] if finding["id"] == "filesystem_write_access")
+
+        self.assertEqual(write_finding["rule_id"], "ACL-010")
+        self.assertEqual(write_finding["evidence_paths"], ["tools.filesystem"])
+
+    def test_sarif_points_to_source_line_for_evidence_path(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.yaml"
+            config_path.write_text("tools:\n  shell:\n    enabled: true\n")
+
+            exit_code, output = run([str(config_path), "--format", "sarif"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        shell_result = next(result for result in parsed["runs"][0]["results"] if result["ruleId"] == "ACL-001")
+        location = shell_result["locations"][0]["physicalLocation"]
+        self.assertEqual(location["region"]["startLine"], 2)
+        self.assertEqual(shell_result["properties"]["evidence_paths"], ["tools.shell"])
+
     def test_cli_lints_toml_config(self):
         from agent_config_linter.cli import run
 

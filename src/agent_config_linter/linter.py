@@ -1,5 +1,7 @@
 """Core risk scoring for autonomous-agent configuration files."""
 
+from copy import deepcopy
+
 SEVERITIES = ("critical", "high", "medium", "low")
 
 RULE_IDS = {
@@ -12,7 +14,111 @@ RULE_IDS = {
     "privileged_infra_control": ("ACL-007", "privileged-infra-control"),
     "approval_gate_missing": ("ACL-008", "approval-gate-missing"),
     "weak_model_risk": ("ACL-009", "weak-model-risk"),
+    "filesystem_write_access": ("ACL-010", "filesystem-write-access"),
 }
+
+
+def _merge_dict(target, key, value):
+    existing = target.get(key)
+    if isinstance(existing, dict) and isinstance(value, dict):
+        merged = dict(value)
+        merged.update(existing)
+        target[key] = merged
+    elif key not in target:
+        target[key] = value
+
+
+def _normalize_hermes_config(config):
+    normalized = deepcopy(config)
+    hermes = normalized.get("hermes")
+    if not isinstance(hermes, dict):
+        return normalized
+
+    if "enabled_toolsets" in hermes and "enabled_toolsets" not in normalized:
+        normalized["enabled_toolsets"] = hermes["enabled_toolsets"]
+    if "toolsets" in hermes and "toolsets" not in normalized:
+        normalized["toolsets"] = hermes["toolsets"]
+
+    channels = hermes.get("channels") or hermes.get("bindings")
+    if isinstance(channels, dict):
+        inputs = dict(normalized.get("inputs", {})) if isinstance(normalized.get("inputs"), dict) else {}
+        for channel, value in channels.items():
+            inputs.setdefault(channel, value)
+        normalized["inputs"] = inputs
+
+    if isinstance(hermes.get("secrets"), dict):
+        _merge_dict(normalized, "secrets", hermes["secrets"])
+
+    network = hermes.get("network")
+    if isinstance(network, dict) and is_enabled(network.get("egress")):
+        tools = dict(normalized.get("tools", {})) if isinstance(normalized.get("tools"), dict) else {}
+        tools.setdefault("http", {"enabled": True})
+        normalized["tools"] = tools
+    return normalized
+
+
+def _normalize_openclaw_config(config):
+    normalized = deepcopy(config)
+    openclaw = normalized.get("openclaw")
+    if not isinstance(openclaw, dict):
+        return normalized
+
+    tools = dict(normalized.get("tools", {})) if isinstance(normalized.get("tools"), dict) else {}
+    browser = openclaw.get("browser")
+    if isinstance(browser, dict) and is_enabled(browser):
+        browser_tool = dict(tools.get("browser", {})) if isinstance(tools.get("browser"), dict) else {}
+        browser_tool.setdefault("enabled", True)
+        if is_enabled(browser.get("allowPrivateNetwork")) or is_enabled(browser.get("privateNetwork")):
+            browser_tool["private_network"] = True
+        if is_enabled(browser.get("localhost")):
+            browser_tool["localhost"] = True
+        tools["browser"] = browser_tool
+    web = openclaw.get("web")
+    if is_enabled(web):
+        tools.setdefault("http", {"enabled": True})
+    if tools:
+        normalized["tools"] = tools
+    return normalized
+
+
+def _normalize_openai_config(config):
+    normalized = deepcopy(config)
+    tools = normalized.get("tools")
+    if not isinstance(tools, list):
+        return normalized
+
+    normalized_tools = {}
+    for tool in tools:
+        if isinstance(tool, str):
+            tool_type = tool
+            function_name = tool
+        elif isinstance(tool, dict):
+            tool_type = str(tool.get("type", ""))
+            function = tool.get("function", {}) if isinstance(tool.get("function"), dict) else {}
+            function_name = str(function.get("name", tool_type))
+        else:
+            continue
+        normalized_type = tool_type.lower().replace("-", "_")
+        normalized_name = function_name.lower().replace("-", "_")
+        if normalized_type in {"code_interpreter", "computer_use"} or normalized_name in {"python", "shell", "terminal", "exec"}:
+            normalized_tools["python"] = True
+        if any(fragment in normalized_name for fragment in ("email", "send", "slack", "discord", "telegram", "http", "webhook")):
+            normalized_tools[normalized_name] = {"enabled": True}
+    normalized["tools"] = normalized_tools
+    return normalized
+
+
+def normalize_config(config):
+    """Return (adapter name, normalized config) for known agent schema shapes."""
+    if not isinstance(config, dict):
+        return "generic", {}
+    if isinstance(config.get("hermes"), dict):
+        return "hermes", _normalize_hermes_config(config)
+    if isinstance(config.get("openclaw"), dict):
+        return "openclaw", _normalize_openclaw_config(config)
+    if isinstance(config.get("tools"), list):
+        return "openai", _normalize_openai_config(config)
+    return "generic", deepcopy(config)
 
 
 def is_enabled(value):
@@ -54,7 +160,9 @@ def _has_enabled_key(config, names):
     return False
 
 
-def _filesystem_broad(config):
+def _filesystem_access_paths(config):
+    broad_paths = []
+    write_paths = []
     for path, value in walk_items(config):
         lower_path = path.lower()
         if "filesystem" not in lower_path and "file" not in lower_path:
@@ -65,10 +173,16 @@ def _filesystem_broad(config):
         if isinstance(roots, str):
             roots = [roots]
         if any(root in {"/", "~", "$HOME", "*"} for root in roots):
-            return True
+            broad_paths.append(path)
         if value.get("write") is True or value.get("mode") in {"rw", "write", "read-write"}:
-            return True
-    return False
+            write_paths.append(path)
+            broad_paths.append(path)
+    return sorted(set(broad_paths)), sorted(set(write_paths))
+
+
+def _filesystem_broad(config):
+    broad_paths, _write_paths = _filesystem_access_paths(config)
+    return bool(broad_paths)
 
 
 def _browser_private_network(config):
@@ -210,27 +324,32 @@ def _approval_configured(config):
     return is_enabled(approvals)
 
 
-def _tool_enabled(config, names):
+def _tool_paths(config, names):
     tools = config.get("tools", {}) if isinstance(config, dict) else {}
     names = {name.lower().replace("_", "-") for name in names}
+    paths = []
     if isinstance(tools, dict):
         for key, value in tools.items():
             normalized = str(key).lower().replace("_", "-")
-            if normalized in names:
-                return is_enabled(value)
+            if normalized in names and is_enabled(value):
+                paths.append(f"tools.{key}")
     for toolset_key in ("enabled_toolsets", "toolsets", "enabled-tools", "enabled_tools"):
         toolsets = config.get(toolset_key, []) if isinstance(config, dict) else []
         if isinstance(toolsets, str):
             toolsets = [toolsets]
         if isinstance(toolsets, list):
-            for tool_name in toolsets:
+            for index, tool_name in enumerate(toolsets):
                 normalized = str(tool_name).lower().replace("_", "-")
                 if normalized in names:
-                    return True
-    return False
+                    paths.append(f"{toolset_key}[{index}]")
+    return paths
 
 
-def _add(findings, finding_id, severity, title, evidence, remediation):
+def _tool_enabled(config, names):
+    return bool(_tool_paths(config, names))
+
+
+def _add(findings, finding_id, severity, title, evidence, remediation, evidence_paths=None):
     rule_id, rule_name = RULE_IDS.get(finding_id, (finding_id, finding_id.replace("_", "-")))
     findings.append(
         {
@@ -240,6 +359,7 @@ def _add(findings, finding_id, severity, title, evidence, remediation):
             "severity": severity,
             "title": title,
             "evidence": evidence,
+            "evidence_paths": sorted(set(evidence_paths or [])),
             "remediation": remediation,
         }
     )
@@ -247,17 +367,19 @@ def _add(findings, finding_id, severity, title, evidence, remediation):
 
 def lint_config(config):
     """Return a deterministic risk report for one config mapping."""
-    if not isinstance(config, dict):
-        config = {}
+    adapter, normalized_config = normalize_config(config)
+    config = normalized_config
 
     capabilities = []
     findings = []
 
     untrusted_inputs = _has_enabled_key(config.get("inputs", config), {"web", "browser", "discord", "slack", "telegram", "email", "http", "rss", "webhook"})
     private_data = _has_enabled_key(config, {"filesystem", "files", "memory", "notes", "gmail", "email", "drive", "github", "secrets", "env"})
-    outbound_actions = _has_enabled_key(config, {"email", "discord", "telegram", "slack", "send_message", "http", "webhook", "github", "browser"})
-    code_execution = _tool_enabled(config, {"shell", "exec", "terminal", "subprocess", "python", "node"})
+    outbound_actions = _has_enabled_key(config, {"email", "send_email", "send-email", "discord", "telegram", "slack", "send_message", "http", "webhook", "github", "browser"})
+    shell_paths = _tool_paths(config, {"shell", "exec", "terminal", "subprocess", "python", "node"})
+    code_execution = bool(shell_paths)
     network_egress = _network_egress(config)
+    filesystem_broad_paths, filesystem_write_paths = _filesystem_access_paths(config)
     secrets_access = _secrets_or_credentials_access(config)
     destructive_actions = _destructive_actions(config)
     unattended_autonomy = _unattended_autonomy(config)
@@ -266,11 +388,39 @@ def lint_config(config):
     if code_execution:
         capabilities.append("shell_enabled")
         capabilities.append("code_execution")
-        _add(findings, "shell_enabled", "high", "Shell execution is enabled", "Agent can run local commands", "Require explicit approval and sandbox shell execution.")
+        _add(
+            findings,
+            "shell_enabled",
+            "high",
+            "Shell execution is enabled",
+            "Agent can run local commands",
+            "Require explicit approval and sandbox shell execution.",
+            shell_paths,
+        )
 
-    if _filesystem_broad(config):
+    if filesystem_broad_paths:
         capabilities.append("filesystem_broad_access")
-        _add(findings, "filesystem_broad_access", "high", "Broad filesystem access", "Filesystem roots include broad paths or write access", "Constrain file access to project-scoped allowlists.")
+        _add(
+            findings,
+            "filesystem_broad_access",
+            "high",
+            "Broad filesystem access",
+            "Filesystem roots include broad paths or write access",
+            "Constrain file access to project-scoped allowlists.",
+            filesystem_broad_paths,
+        )
+
+    if filesystem_write_paths:
+        capabilities.append("filesystem_write_access")
+        _add(
+            findings,
+            "filesystem_write_access",
+            "high",
+            "Filesystem write access",
+            "Filesystem configuration permits write-capable access",
+            "Prefer read-only filesystem mounts unless writes are required and path-scoped.",
+            filesystem_write_paths,
+        )
 
     if _browser_private_network(config):
         capabilities.append("browser_private_network")
@@ -347,6 +497,7 @@ def lint_config(config):
 
     return {
         "schema_version": "0.1",
+        "schema": {"adapter": adapter},
         "risk_level": risk_level,
         "score": score,
         "summary": summary,

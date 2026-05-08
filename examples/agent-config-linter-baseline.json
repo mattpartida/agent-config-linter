@@ -3,7 +3,10 @@
     {
       "path": "examples/high-risk-agent.json",
       "rule_id": "ACL-009",
-      "reason": "Example fixture intentionally uses a weak/local model to demonstrate the rule."
+      "reason": "Example fixture intentionally uses a weak/local model to demonstrate the rule.",
+      "owner": "security-team",
+      "ticket": "SEC-123",
+      "expires_at": "2026-12-31"
     }
   ]
 }

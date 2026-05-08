@@ -33,6 +33,9 @@ agent-config-lint path/to/agent.json --format json
 agent-config-lint path/to/agent.yaml --format markdown
 agent-config-lint path/to/config-directory --format sarif > agent-config-linter.sarif
 agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --format json
+agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --format json
+agent-config-lint path/to/config-directory --generate-baseline agent-config-linter-baseline.json --format json
+agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --fail-on-stale-baseline --format json
 ```
 
 Output includes:
@@ -42,7 +45,9 @@ Output includes:
 - `signals.lethal_trifecta`
 - `signals.enabled_capabilities`
 - structured `findings`, including stable `rule_id` and `rule_name` fields
+- optional `policy_suppressed_findings` and `policy_suppressed_summary` when a policy disables or allowlists findings
 - optional `suppressed_findings` and `suppressed_summary` when a baseline is provided
+- optional `baseline.stale_suppressions`/`baseline.stale_count` for baseline cleanup
 - `recommended_next_actions`
 
 Formats:
@@ -61,6 +66,8 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.yaml -
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.toml --format sarif
 PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --baseline examples/agent-config-linter-baseline.json --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --generate-baseline /tmp/agent-config-linter-baseline.json --format json
 ```
 
 ## GitHub code scanning
@@ -79,6 +86,38 @@ Use the example workflow at [`.github/workflows/agent-config-linter-code-scannin
 
 For downstream repos, replace `.` with the config file or directory path that should be scanned.
 
+## Policy configuration
+
+Use `--policy` to adapt default findings to org-specific risk decisions while keeping the linter deterministic without a policy. Policies can be JSON, YAML, or TOML files.
+
+```json
+{
+  "severity_overrides": {
+    "ACL-001": "medium"
+  },
+  "disabled_rules": ["weak_model_risk"],
+  "allowlists": {
+    "tools": ["shell"],
+    "rules": ["ACL-009"],
+    "paths": [
+      {
+        "path": "examples/dev-*.json",
+        "rule_id": "ACL-001",
+        "reason": "Development-only shell access is reviewed separately."
+      }
+    ]
+  }
+}
+```
+
+- `severity_overrides` (or `severities`) accepts stable rule IDs, rule names, or finding IDs and one of `critical`, `high`, `medium`, or `low`.
+- `disabled_rules` (or `rule_disables`) removes matching findings from active results and reports them under `policy_suppressed_findings`.
+- `allowlists.tools` suppresses findings whose evidence points at an allowed `tools.<name>` path.
+- `allowlists.rules` suppresses matching rule IDs, rule names, or finding IDs.
+- `allowlists.paths` suppresses matching path globs, optionally narrowed by `rule_id` or `id`.
+
+Invalid policy files are rejected before linting with exit code `2`.
+
 ## Baselines and suppressions
 
 Use `--baseline` to suppress accepted findings while keeping an audit trail in JSON output. Baselines can be JSON, YAML, or TOML files with a `suppressions` list:
@@ -89,13 +128,22 @@ Use `--baseline` to suppress accepted findings while keeping an audit trail in J
     {
       "path": "examples/high-risk-agent.json",
       "rule_id": "ACL-009",
-      "reason": "Example fixture intentionally uses a weak/local model to demonstrate the rule."
+      "reason": "Example fixture intentionally uses a weak/local model to demonstrate the rule.",
+      "owner": "security-team",
+      "ticket": "SEC-123",
+      "expires_at": "2026-12-31"
     }
   ]
 }
 ```
 
-Each suppression must include `rule_id`, `finding_id`, or `id`, plus an optional `path` glob. Matching findings are removed from `findings` and reported under `suppressed_findings` with `suppressed_summary` counts.
+Each suppression must include `rule_id`, `finding_id`, or `id`, plus an optional `path` glob. Matching, unexpired findings are removed from `findings` and reported under `suppressed_findings` with `suppressed_summary` counts. Optional lifecycle metadata includes:
+
+- `owner`: team or person responsible for revisiting the suppression.
+- `ticket`: tracking issue/change record.
+- `expires_at`: ISO `YYYY-MM-DD` date. Expired suppressions do not match active findings.
+
+Use `--generate-baseline path/to/baseline.json` to write the current active findings as suppressions with TODO lifecycle metadata. When an existing baseline is supplied, stale suppressions that no longer match any finding are reported under `baseline.stale_suppressions`; add `--fail-on-stale-baseline` to return exit code `1` when cleanup is needed.
 
 ## Config-shape fixtures
 
@@ -165,17 +213,17 @@ The MVP is now usable as a local/CI linter. The next roadmap focuses on making f
 
 ### 1. Policy and severity configuration
 
-- Add a `--policy` flag for JSON/YAML/TOML policy files.
-- Let teams override severity, disable selected rules, and set org-specific path/tool allowlists.
-- Preserve stable default severities when no policy is supplied.
-- Validate policy files with clear errors before linting configs.
+- Shipped: `--policy` flag for JSON/YAML/TOML policy files.
+- Shipped: severity overrides, disabled rules, and org-specific path/tool/rule allowlists.
+- Shipped: stable default severities when no policy is supplied.
+- Shipped: policy validation with clear errors before linting configs.
 
 ### 2. Baseline lifecycle tooling
 
-- Add a `--generate-baseline` command that writes current findings as suppressions.
-- Add `expires_at`, `owner`, and `ticket` fields to suppression examples and validation.
-- Warn on stale suppressions that no longer match any finding.
-- Support `--fail-on-stale-baseline` for CI cleanup.
+- Shipped: `--generate-baseline` writes current findings as suppressions.
+- Shipped: `expires_at`, `owner`, and `ticket` fields in suppression examples and validation.
+- Shipped: stale suppressions that no longer match any finding are reported in JSON output.
+- Shipped: `--fail-on-stale-baseline` for CI cleanup.
 
 ### 3. CI and developer-experience polish
 

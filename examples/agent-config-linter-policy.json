@@ -1,0 +1,16 @@
+{
+  "severity_overrides": {
+    "ACL-001": "medium"
+  },
+  "disabled_rules": ["weak_model_risk"],
+  "allowlists": {
+    "tools": ["shell"],
+    "paths": [
+      {
+        "path": "examples/dev-*.json",
+        "rule_id": "ACL-001",
+        "reason": "Development-only shell access is reviewed separately."
+      }
+    ]
+  }
+}

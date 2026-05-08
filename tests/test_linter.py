@@ -323,6 +323,118 @@ class LinterTests(unittest.TestCase):
         self.assertIn("ACL-001", {finding["rule_id"] for finding in report["findings"]})
         self.assertEqual(report["suppressed_findings"], [])
 
+    def test_cli_policy_overrides_severity_and_disables_rules(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}, "model": "small-local-7b"}))
+            policy_path = root / "policy.json"
+            policy_path.write_text(
+                json.dumps(
+                    {
+                        "severity_overrides": {"ACL-001": "medium"},
+                        "disabled_rules": ["weak_model_risk"],
+                    }
+                )
+            )
+
+            exit_code, output = run([str(config_path), "--policy", str(policy_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        report = json.loads(output)["files"][0]
+        findings = {finding["id"]: finding for finding in report["findings"]}
+        self.assertEqual(findings["shell_enabled"]["severity"], "medium")
+        self.assertNotIn("weak_model_risk", findings)
+        self.assertEqual(report["summary"]["medium"], 1)
+        self.assertEqual(report["summary"]["high"], 0)
+
+    def test_cli_policy_tool_allowlist_suppresses_matching_finding(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True, "browser": {"enabled": True, "private_network": True}}}))
+            policy_path = root / "policy.json"
+            policy_path.write_text(json.dumps({"allowlists": {"tools": ["shell"]}}))
+
+            exit_code, output = run([str(config_path), "--policy", str(policy_path), "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        report = json.loads(output)["files"][0]
+        self.assertNotIn("shell_enabled", {finding["id"] for finding in report["findings"]})
+        self.assertIn("browser_private_network", {finding["id"] for finding in report["findings"]})
+        self.assertEqual(report["policy_suppressed_findings"][0]["policy"]["allowlist"], "tools.shell")
+
+    def test_cli_generate_baseline_writes_current_findings(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            baseline_path = root / "baseline.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+
+            exit_code, output = run([str(config_path), "--generate-baseline", str(baseline_path), "--format", "json"])
+
+            self.assertEqual(exit_code, 0)
+            generated = json.loads(baseline_path.read_text())
+
+        self.assertEqual(generated["schema_version"], "0.1")
+        self.assertEqual(generated["suppressions"][0]["rule_id"], "ACL-001")
+        self.assertEqual(generated["suppressions"][0]["owner"], "TODO")
+        self.assertEqual(generated["suppressions"][0]["ticket"], "TODO")
+        parsed = json.loads(output)
+        self.assertEqual(parsed["baseline"]["generated"], str(baseline_path))
+
+    def test_cli_baseline_reports_stale_suppressions_and_can_fail(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+            baseline_path = root / "baseline.json"
+            baseline_path.write_text(
+                json.dumps(
+                    {
+                        "suppressions": [
+                            {"path": str(config_path), "rule_id": "ACL-001", "owner": "sec", "ticket": "SEC-1"},
+                            {"path": str(config_path), "rule_id": "ACL-999", "owner": "sec", "ticket": "SEC-2"},
+                        ]
+                    }
+                )
+            )
+
+            exit_code, output = run([str(config_path), "--baseline", str(baseline_path), "--fail-on-stale-baseline", "--format", "json"])
+
+        self.assertEqual(exit_code, 1)
+        parsed = json.loads(output)
+        self.assertEqual(parsed["baseline"]["stale_count"], 1)
+        self.assertEqual(parsed["baseline"]["stale_suppressions"][0]["rule_id"], "ACL-999")
+
+    def test_cli_rejects_invalid_policy_and_baseline_metadata(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+            policy_path = root / "policy.json"
+            policy_path.write_text(json.dumps({"severity_overrides": {"ACL-001": "urgent"}}))
+            baseline_path = root / "baseline.json"
+            baseline_path.write_text(json.dumps({"suppressions": [{"path": "*", "rule_id": "ACL-001", "expires_at": "tomorrow"}]}))
+
+            policy_exit_code, policy_output = run([str(config_path), "--policy", str(policy_path), "--format", "json"])
+            baseline_exit_code, baseline_output = run([str(config_path), "--baseline", str(baseline_path), "--format", "json"])
+
+        self.assertEqual(policy_exit_code, 2)
+        self.assertIn("Invalid severity", json.loads(policy_output)["errors"][0]["message"])
+        self.assertEqual(baseline_exit_code, 2)
+        self.assertIn("expires_at", json.loads(baseline_output)["errors"][0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,7 @@ import json
 import re
 import sys
 import tomllib
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -42,6 +43,17 @@ def _load_config(path):
     raise ValueError(f"Unsupported config extension: {suffix or '(none)'}")
 
 
+def _validate_iso_date(value, field_name):
+    if value in (None, ""):
+        return None
+    if not isinstance(value, str):
+        raise ValueError(f"Baseline suppression {field_name} must be a YYYY-MM-DD string")
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"Baseline suppression {field_name} must be a YYYY-MM-DD string") from exc
+
+
 def _load_baseline(path):
     baseline = _load_config(path)
     if not isinstance(baseline, dict):
@@ -52,7 +64,45 @@ def _load_baseline(path):
     for suppression in suppressions:
         if not isinstance(suppression, dict):
             raise ValueError("Each baseline suppression must be a mapping")
+        _validate_iso_date(suppression.get("expires_at"), "expires_at")
+        for field_name in ("owner", "ticket"):
+            if field_name in suppression and not isinstance(suppression[field_name], str):
+                raise ValueError(f"Baseline suppression {field_name} must be a string")
     return suppressions
+
+
+def _load_policy(path):
+    policy = _load_config(path)
+    if not isinstance(policy, dict):
+        raise ValueError("Policy must be a mapping")
+
+    severity_overrides = policy.get("severity_overrides", policy.get("severities", {}))
+    if not isinstance(severity_overrides, dict):
+        raise ValueError("Policy severity_overrides must be a mapping")
+    for rule, severity in severity_overrides.items():
+        if severity not in SEVERITIES:
+            raise ValueError(f"Invalid severity for {rule}: {severity}")
+
+    disabled_rules = policy.get("disabled_rules", policy.get("rule_disables", []))
+    if isinstance(disabled_rules, str):
+        disabled_rules = [disabled_rules]
+    if not isinstance(disabled_rules, list) or not all(isinstance(rule, str) for rule in disabled_rules):
+        raise ValueError("Policy disabled_rules must be a list of rule IDs or finding IDs")
+
+    allowlists = policy.get("allowlists", {})
+    if allowlists is None:
+        allowlists = {}
+    if not isinstance(allowlists, dict):
+        raise ValueError("Policy allowlists must be a mapping")
+    for key in ("paths", "tools", "rules"):
+        if key in allowlists and not isinstance(allowlists[key], list):
+            raise ValueError(f"Policy allowlists.{key} must be a list")
+
+    return {
+        "severity_overrides": dict(severity_overrides),
+        "disabled_rules": set(disabled_rules),
+        "allowlists": allowlists,
+    }
 
 
 def _expand_path(path):
@@ -106,18 +156,97 @@ def _risk_from_summary(summary):
     return "low", score
 
 
-def _apply_baseline(report, path, suppressions):
+def _finding_rule_keys(finding):
+    return {str(value) for value in (finding.get("rule_id"), finding.get("rule_name"), finding.get("id")) if value}
+
+
+def _finalize_report(report):
+    findings = report.get("findings", [])
+    report["summary"] = {severity: sum(1 for finding in findings if finding["severity"] == severity) for severity in SEVERITIES}
+    report["risk_level"], report["score"] = _risk_from_summary(report["summary"])
+    report["recommended_next_actions"] = [finding["remediation"] for finding in findings[:5]]
+    return report
+
+
+def _apply_policy(report, path, policy):
+    if not policy:
+        return report
+
+    severity_overrides = policy.get("severity_overrides", {})
+    disabled_rules = policy.get("disabled_rules", set())
+    allowlists = policy.get("allowlists", {})
+    allowlisted_tools = {str(tool).lower().replace("_", "-") for tool in allowlists.get("tools", [])}
+    allowlisted_rules = {str(rule) for rule in allowlists.get("rules", [])}
+    allowlisted_paths = allowlists.get("paths", [])
+
     remaining_findings = []
     suppressed_findings = []
     for finding in report.get("findings", []):
+        rule_keys = _finding_rule_keys(finding)
+        disabled_match = bool(rule_keys & disabled_rules)
+        rule_allow_match = bool(rule_keys & allowlisted_rules)
+        tool_allow_match = False
+        tool_allowlist_entry = None
+        for evidence_path in finding.get("evidence_paths", []):
+            normalized_evidence = str(evidence_path).lower().replace("_", "-")
+            if normalized_evidence.startswith("tools."):
+                tool_name = normalized_evidence.split(".", 1)[1].split("[", 1)[0]
+                if tool_name in allowlisted_tools:
+                    tool_allow_match = True
+                    tool_allowlist_entry = f"tools.{tool_name}"
+                    break
+        path_allow_match = any(
+            isinstance(entry, dict)
+            and _path_matches(entry.get("path", "*"), path)
+            and (not entry.get("rule_id") or entry.get("rule_id") in rule_keys)
+            and (not entry.get("id") or entry.get("id") in rule_keys)
+            for entry in allowlisted_paths
+        )
+
+        if disabled_match or rule_allow_match or tool_allow_match or path_allow_match:
+            suppressed = dict(finding)
+            reason = "disabled_rule" if disabled_match else "allowlist"
+            suppressed["policy"] = {"reason": reason}
+            if tool_allowlist_entry:
+                suppressed["policy"]["allowlist"] = tool_allowlist_entry
+            suppressed_findings.append(suppressed)
+            continue
+
+        override = next((severity_overrides[key] for key in rule_keys if key in severity_overrides), None)
+        if override:
+            finding = dict(finding)
+            finding["severity"] = override
+        remaining_findings.append(finding)
+
+    report["findings"] = remaining_findings
+    report["policy_suppressed_findings"] = suppressed_findings
+    report["policy_suppressed_summary"] = {
+        severity: sum(1 for finding in suppressed_findings if finding["severity"] == severity) for severity in SEVERITIES
+    }
+    return _finalize_report(report)
+
+
+def _apply_baseline(report, path, suppressions, matched_suppression_ids=None):
+    remaining_findings = []
+    suppressed_findings = []
+    today = date.today()
+    for finding in report.get("findings", []):
         matching_suppression = next(
-            (suppression for suppression in suppressions if _suppression_matches(suppression, path, finding)), None
+            (
+                suppression
+                for suppression in suppressions
+                if not (_validate_iso_date(suppression.get("expires_at"), "expires_at") and _validate_iso_date(suppression.get("expires_at"), "expires_at") < today)
+                and _suppression_matches(suppression, path, finding)
+            ),
+            None,
         )
         if matching_suppression:
+            if matched_suppression_ids is not None:
+                matched_suppression_ids.add(id(matching_suppression))
             suppressed = dict(finding)
             suppressed["suppression"] = {
                 key: matching_suppression[key]
-                for key in ("path", "rule_id", "finding_id", "id", "reason")
+                for key in ("path", "rule_id", "finding_id", "id", "reason", "expires_at", "owner", "ticket")
                 if key in matching_suppression
             }
             suppressed_findings.append(suppressed)
@@ -126,15 +255,10 @@ def _apply_baseline(report, path, suppressions):
 
     report["findings"] = remaining_findings
     report["suppressed_findings"] = suppressed_findings
-    report["summary"] = {
-        severity: sum(1 for finding in remaining_findings if finding["severity"] == severity) for severity in SEVERITIES
-    }
     report["suppressed_summary"] = {
         severity: sum(1 for finding in suppressed_findings if finding["severity"] == severity) for severity in SEVERITIES
     }
-    report["risk_level"], report["score"] = _risk_from_summary(report["summary"])
-    report["recommended_next_actions"] = [finding["remediation"] for finding in remaining_findings[:5]]
-    return report
+    return _finalize_report(report)
 
 
 def _source_line_for_evidence(path, evidence_paths):
@@ -269,16 +393,52 @@ def _format_result(result, output_format):
     raise ValueError(f"Unsupported format: {output_format}")
 
 
+def _baseline_entry(path, finding):
+    return {
+        "path": str(path),
+        "rule_id": finding.get("rule_id", finding["id"]),
+        "finding_id": finding["id"],
+        "reason": "TODO: document accepted risk",
+        "owner": "TODO",
+        "ticket": "TODO",
+        "expires_at": None,
+    }
+
+
+def _write_generated_baseline(path, reports):
+    suppressions = [
+        _baseline_entry(report["path"], finding)
+        for report in reports
+        for finding in report.get("findings", [])
+    ]
+    baseline = {
+        "schema_version": "0.1",
+        "generated_by": "agent-config-linter",
+        "suppressions": suppressions,
+    }
+    path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
+    return baseline
+
+
+def _stale_suppressions(suppressions, matched_suppression_ids):
+    return [suppression for suppression in suppressions if id(suppression) not in matched_suppression_ids]
+
+
 def run(argv=None):
     parser = argparse.ArgumentParser(description="Lint autonomous-agent config files for risky capability combinations")
     parser.add_argument("paths", nargs="+", help="Config file or directory paths. Directories are scanned recursively for JSON, YAML, and TOML files.")
     parser.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
     parser.add_argument("--baseline", help="JSON, YAML, or TOML file containing accepted finding suppressions")
+    parser.add_argument("--policy", help="JSON, YAML, or TOML policy file with severity overrides, rule disables, and allowlists")
+    parser.add_argument("--generate-baseline", help="Write current findings as baseline suppressions to this JSON file")
+    parser.add_argument("--fail-on-stale-baseline", action="store_true", help="Exit non-zero when baseline suppressions no longer match any finding")
     args = parser.parse_args(argv)
 
     result = {"schema_version": "0.1", "files": [], "errors": []}
     exit_code = 0
     suppressions = []
+    matched_suppression_ids = set()
+    policy = None
 
     if args.baseline:
         baseline_path = Path(args.baseline)
@@ -290,6 +450,17 @@ def run(argv=None):
         except ValueError as exc:
             exit_code = 2
             result["errors"].append({"path": str(baseline_path), "message": str(exc)})
+
+    if args.policy:
+        policy_path = Path(args.policy)
+        try:
+            policy = _load_policy(policy_path)
+        except OSError as exc:
+            exit_code = 2
+            result["errors"].append({"path": str(policy_path), "message": str(exc)})
+        except ValueError as exc:
+            exit_code = 2
+            result["errors"].append({"path": str(policy_path), "message": str(exc)})
 
     for raw_path in args.paths:
         input_path = Path(raw_path)
@@ -309,8 +480,10 @@ def run(argv=None):
                 config = _load_config(path)
                 report = lint_config(config)
                 report["path"] = str(path)
+                if policy:
+                    report = _apply_policy(report, path, policy)
                 if args.baseline:
-                    report = _apply_baseline(report, path, suppressions)
+                    report = _apply_baseline(report, path, suppressions, matched_suppression_ids)
                 result["files"].append(report)
             except OSError as exc:
                 exit_code = 2
@@ -318,6 +491,25 @@ def run(argv=None):
             except ValueError as exc:
                 exit_code = 2
                 result["errors"].append({"path": str(path), "message": str(exc)})
+
+    if args.baseline:
+        stale = _stale_suppressions(suppressions, matched_suppression_ids)
+        result["baseline"] = {"stale_count": len(stale), "stale_suppressions": stale}
+        if stale and args.fail_on_stale_baseline and exit_code == 0:
+            exit_code = 1
+
+    if args.generate_baseline and exit_code == 0:
+        baseline_path = Path(args.generate_baseline)
+        try:
+            generated = _write_generated_baseline(baseline_path, result["files"])
+            result["baseline"] = {
+                **result.get("baseline", {}),
+                "generated": str(baseline_path),
+                "generated_count": len(generated["suppressions"]),
+            }
+        except OSError as exc:
+            exit_code = 2
+            result["errors"].append({"path": str(baseline_path), "message": str(exc)})
 
     return exit_code, _format_result(result, args.format)
 

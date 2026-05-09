@@ -1,0 +1,9 @@
+# Shell is available for a local developer sandbox, but dangerous actions require approval.
+tools:
+  shell:
+    enabled: true
+approvals:
+  shell: true
+  delete: true
+  send_email: true
+model: gpt-5.2

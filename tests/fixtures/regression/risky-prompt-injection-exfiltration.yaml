@@ -1,0 +1,21 @@
+# Untrusted web content can reach code execution, secrets, and network egress.
+inputs:
+  browser:
+    enabled: true
+  webhook:
+    enabled: true
+tools:
+  terminal:
+    enabled: true
+  filesystem:
+    enabled: true
+    mode: rw
+    paths:
+      - ~/projects/agent
+  http:
+    enabled: true
+    methods:
+      - POST
+secrets:
+  env: true
+  api_keys: true

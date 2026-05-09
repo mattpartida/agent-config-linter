@@ -1,0 +1,12 @@
+# Dangerous actions are explicitly configured without human approval gates.
+tools:
+  shell:
+    enabled: true
+  email:
+    enabled: true
+  trade:
+    enabled: true
+approvals:
+  shell: false
+  send_email: false
+  trade: false

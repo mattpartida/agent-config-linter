@@ -270,10 +270,10 @@ The MVP is now usable as a local/CI linter. The next roadmap focuses on making f
 
 ### 5. Security regression corpus
 
-- Build `tests/fixtures/regression/` with known risky and safe configs.
-- Add regression cases for prompt-injection-to-exfiltration bridges, unattended tool use, private-network browser exposure, and weak approval gates.
-- Add safe negative fixtures to reduce false positives.
-- Track rule coverage in docs so new rules require fixture-backed examples.
+- Shipped: `tests/fixtures/regression/` with known risky and safe configs.
+- Shipped: regression cases for prompt-injection-to-exfiltration bridges, unattended tool use, private-network browser exposure, and weak approval gates.
+- Shipped: safe negative fixtures for approval-gated shell, read-only project files, and public-only browser access.
+- Shipped: `docs/rule-coverage.md` tracks rule-to-fixture coverage and the fixture requirements for new rules.
 
 ## Development
 

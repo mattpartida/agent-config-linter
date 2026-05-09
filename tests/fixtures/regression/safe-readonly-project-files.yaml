@@ -1,0 +1,12 @@
+# Project-scoped read-only file access should not be treated as broad filesystem access.
+tools:
+  filesystem:
+    enabled: true
+    mode: read-only
+    paths:
+      - ./src
+      - ./tests
+inputs:
+  cli: true
+approvals:
+  filesystem: true

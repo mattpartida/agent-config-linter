@@ -1,0 +1,11 @@
+# Public web browsing without private-network access should avoid the private-network rule.
+tools:
+  browser:
+    enabled: true
+    private_network: false
+    localhost: false
+inputs:
+  web:
+    enabled: true
+approvals:
+  browser: true

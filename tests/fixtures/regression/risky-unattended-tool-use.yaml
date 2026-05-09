@@ -1,0 +1,13 @@
+# Scheduled unattended agent with destructive/write tools and no approval policy.
+autonomy:
+  enabled: true
+  mode: unattended
+schedule:
+  enabled: true
+  cron: '*/5 * * * *'
+tools:
+  shell: true
+  delete: true
+  github:
+    enabled: true
+    write: true

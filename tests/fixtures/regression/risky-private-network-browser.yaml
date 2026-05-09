@@ -1,0 +1,9 @@
+# Browser automation may access localhost/LAN management interfaces.
+tools:
+  browser:
+    enabled: true
+    private_network: true
+    localhost: true
+inputs:
+  web:
+    enabled: true

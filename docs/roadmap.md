@@ -129,6 +129,8 @@
 
 ### 7. First public release hardening
 
+**Status:** Shipped. `CHANGELOG.md` now covers the regression fixture corpus and roadmap docs, `SECURITY.md` defines vulnerability reporting expectations, `.github/workflows/release.yml` runs the built-wheel install smoke test, and `scripts/install-smoke.py` verifies `agent-config-lint --version` in a clean virtual environment.
+
 **Why:** The project has release automation but still needs pre-release polish before broader adoption.
 
 **Deliverables:**
@@ -145,6 +147,8 @@
 
 ### 8. Better developer and reviewer UX
 
+**Status:** Shipped. Added `--format github-markdown`, `--summary-only`, and `examples/github-actions-pr-summary.yml`; the example writes to `GITHUB_STEP_SUMMARY` with read-only permissions by default and documents PR comments as an explicit write-permission opt-in.
+
 **Why:** The fastest path to adoption is a useful report in PRs, not just machine-readable CI artifacts.
 
 **Deliverables:**
@@ -159,6 +163,8 @@
 - Example workflow can run without requiring write permissions unless PR comments are explicitly enabled.
 
 ### 9. Rule-pack architecture exploration
+
+**Status:** Shipped. Added `src/agent_config_linter/rules.py` with a minimal `RuleDefinition` registry, migrated the `ACL-001 shell_enabled` metadata/evidence collector into it without changing output, and documented the built-in rule checklist plus future third-party rule boundaries in `docs/rule-registry.md`.
 
 **Why:** Different orgs will want different checks without forking the whole linter.
 

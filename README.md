@@ -31,6 +31,7 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 ```bash
 agent-config-lint path/to/agent.json --format json
 agent-config-lint path/to/agent.yaml --format markdown
+agent-config-lint path/to/config-directory --format github-markdown --summary-only
 agent-config-lint path/to/config-directory --format sarif > agent-config-linter.sarif
 agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --format json
 agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --format json
@@ -64,13 +65,16 @@ Formats:
 - Directory inputs: scanned recursively for supported config files; unsupported files are ignored during directory scans.
 - Report output `json`: full machine-readable report.
 - Report output `markdown`: human-readable report for PR comments, issues, or chat handoff.
+- Report output `github-markdown`: concise GitHub-flavored Markdown with stable summary and findings sections for PR comments or job summaries.
 - Report output `sarif`: GitHub code scanning compatible report.
+- `--summary-only`: emits only the concise summary for Markdown-style formats, useful for chat/CI logs.
 
 ## Example
 
 ```bash
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.yaml --format markdown
+PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format github-markdown --summary-only
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.toml --format sarif
 PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --baseline examples/agent-config-linter-baseline.json --format json
@@ -89,7 +93,7 @@ Use the example workflow at [`.github/workflows/agent-config-linter-code-scannin
   run: agent-config-lint . --format sarif > agent-config-linter.sarif
 
 - name: Upload SARIF to GitHub code scanning
-  uses: github/codeql-action/upload-sarif@v3
+  uses: github/codeql-action/upload-sarif@v4
   with:
     sarif_file: agent-config-linter.sarif
 ```
@@ -157,6 +161,14 @@ Use `--generate-baseline path/to/baseline.json` to write the current active find
 
 ## CI and developer experience
 
+Use `github-markdown` plus `--summary-only` when you want a compact PR/job-summary view without noisy empty tables:
+
+```bash
+agent-config-lint configs/ --format github-markdown --summary-only
+```
+
+The example workflow `examples/github-actions-pr-summary.yml` writes this output to `GITHUB_STEP_SUMMARY` with read-only default permissions. PR comments are documented as an explicit opt-in because they require granting `pull-requests: write`.
+
 Use staged severity filters and exit-code gates to adopt the linter without blocking on every low-priority finding immediately:
 
 ```bash
@@ -173,10 +185,11 @@ Examples for local adoption are included in:
 - `examples/pre-commit-config.yaml`
 - `examples/Taskfile.yml`
 - `docs/sample-agent-config-linter.sarif`
+- `examples/github-actions-pr-summary.yml`
 
 ## Packaging and releases
 
-Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, and publish via PyPI trusted publishing. See `CHANGELOG.md` and `docs/release-checklist.md` before tagging.
+Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, run `scripts/install-smoke.py --skip-build` against the built wheel in a clean virtual environment, and publish via PyPI trusted publishing. See `CHANGELOG.md`, `SECURITY.md`, and `docs/release-checklist.md` before tagging.
 
 ## Config-shape fixtures
 
@@ -214,7 +227,7 @@ These checks are intentionally conservative: they are meant to catch configs tha
 
 ## Rule IDs
 
-Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog.
+Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md); third-party plugin loading is intentionally not part of the current architecture.
 
 | Rule ID | Finding ID | Default severity |
 | --- | --- | --- |

@@ -28,5 +28,14 @@ jobs:
       - name: Build distributions
         run: python -m build
 
+      - name: Install smoke test from built wheel
+        run: python scripts/install-smoke.py --skip-build
+
+      - name: Verify trusted publishing configuration inputs
+        run: |
+          test "${{ github.event_name }}" = "push"
+          test -n "${{ github.ref_name }}"
+          test -d dist
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

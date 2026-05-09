@@ -2,6 +2,8 @@
 
 from copy import deepcopy
 
+from .rules import RULE_REGISTRY
+
 SEVERITIES = ("critical", "high", "medium", "low")
 
 RULE_IDS = {
@@ -471,8 +473,16 @@ def _tool_enabled(config, names):
     return bool(_tool_paths(config, names))
 
 
-def _add(findings, finding_id, severity, title, evidence, remediation, evidence_paths=None):
-    rule_id, rule_name = RULE_IDS.get(finding_id, (finding_id, finding_id.replace("_", "-")))
+def _add(findings, finding_id, severity=None, title=None, evidence=None, remediation=None, evidence_paths=None):
+    rule = RULE_REGISTRY.get(finding_id)
+    if rule:
+        rule_id, rule_name = rule.rule_id, rule.rule_name
+        severity = severity or rule.default_severity
+        title = title or rule.title
+        evidence = evidence or rule.evidence
+        remediation = remediation or rule.remediation
+    else:
+        rule_id, rule_name = RULE_IDS.get(finding_id, (finding_id, finding_id.replace("_", "-")))
     unique_evidence_paths = list(dict.fromkeys(evidence_paths or []))
     findings.append(
         {
@@ -514,7 +524,8 @@ def lint_config(config):
     untrusted_inputs = bool(untrusted_input_paths)
     private_data = bool(private_data_paths)
     outbound_actions = bool(outbound_action_paths)
-    shell_paths = _tool_paths(config, {"shell", "exec", "terminal", "subprocess", "python", "node"})
+    shell_rule = RULE_REGISTRY["shell_enabled"]
+    shell_paths = shell_rule.collect_evidence(config, {"tool_paths": _tool_paths})
     code_execution = bool(shell_paths)
     network_egress_paths = _network_egress_paths(config)
     network_egress = bool(network_egress_paths)
@@ -531,15 +542,7 @@ def lint_config(config):
     if code_execution:
         capabilities.append("shell_enabled")
         capabilities.append("code_execution")
-        _add(
-            findings,
-            "shell_enabled",
-            "high",
-            "Shell execution is enabled",
-            "Agent can run local commands",
-            "Require explicit approval and sandbox shell execution.",
-            shell_paths,
-        )
+        _add(findings, "shell_enabled", evidence_paths=shell_paths)
 
     if filesystem_broad_paths:
         capabilities.append("filesystem_broad_access")

@@ -10,6 +10,7 @@ Use this checklist before tagging and publishing `agent-config-linter`.
   - `python -m ruff check .`
   - `python -m compileall -q src tests`
 - [ ] Verify the CLI version: `agent-config-lint --version`.
+- [ ] Run the installed-wheel smoke test: `python scripts/install-smoke.py`.
 - [ ] Confirm `CHANGELOG.md` has release notes for the target version.
 - [ ] Confirm `src/agent_config_linter/__init__.py` and `pyproject.toml` agree on the version.
 
@@ -17,6 +18,7 @@ Use this checklist before tagging and publishing `agent-config-linter`.
 
 - [ ] Install build tooling if needed: `python -m pip install --upgrade build`.
 - [ ] Build distributions: `python -m build`.
+- [ ] Smoke-test the built wheel in a clean virtual environment: `python scripts/install-smoke.py --skip-build`.
 - [ ] Inspect `dist/` for exactly one wheel and one source distribution.
 
 ## Tag and publish

@@ -1,0 +1,38 @@
+name: agent-config-linter PR summary
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  summarize-agent-config-risk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install agent-config-linter
+        run: python -m pip install --upgrade pip agent-config-linter
+
+      - name: Write PR-friendly summary
+        run: |
+          agent-config-lint . --format github-markdown --summary-only > agent-config-linter-summary.md
+          cat agent-config-linter-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Optional PR comments require explicitly granting pull-requests: write in
+      # workflow permissions and setting ENABLE_PR_COMMENT=true. The default
+      # workflow above only writes to GITHUB_STEP_SUMMARY and needs contents: read.
+      - name: Optional PR comment
+        if: ${{ github.event_name == 'pull_request' && env.ENABLE_PR_COMMENT == 'true' }}
+        env:
+          ENABLE_PR_COMMENT: "false"
+        run: |
+          echo "To enable comments, grant pull-requests: write and replace this step with gh pr comment."

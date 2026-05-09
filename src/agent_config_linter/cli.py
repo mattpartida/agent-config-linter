@@ -390,6 +390,67 @@ def _format_markdown(result):
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _format_github_markdown(result, summary_only=False):
+    total_files = len(result.get("files", []))
+    total_findings = sum(len(report.get("findings", [])) for report in result.get("files", []))
+    lines = ["## agent-config-linter summary", ""]
+    lines.append(f"Scanned **{total_files}** file(s) and found **{total_findings}** active finding(s).")
+    lines.append("")
+
+    if result.get("errors"):
+        lines.extend(["### Errors", ""])
+        for error in result["errors"]:
+            field = f" `{error['field']}`" if "field" in error else ""
+            lines.append(f"- `{error['path']}`{field}: {error['message']}")
+        lines.append("")
+
+    if result.get("files"):
+        lines.extend(
+            [
+                "| File | Risk | Score | Critical | High | Medium | Low |",
+                "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+            ]
+        )
+        for report in result["files"]:
+            summary = report["summary"]
+            lines.append(
+                "| {path} | {risk} | {score} | {critical} | {high} | {medium} | {low} |".format(
+                    path=_markdown_escape(Path(report["path"]).name),
+                    risk=_markdown_escape(report["risk_level"]),
+                    score=report["score"],
+                    critical=summary["critical"],
+                    high=summary["high"],
+                    medium=summary["medium"],
+                    low=summary["low"],
+                )
+            )
+        lines.append("")
+
+    if summary_only:
+        return "\n".join(lines).rstrip() + "\n"
+
+    findings = [
+        (Path(report["path"]).name, finding)
+        for report in result.get("files", [])
+        for finding in report.get("findings", [])
+    ]
+    if findings:
+        lines.extend(["### Findings", "", "| File | Rule | Severity | Finding | Remediation |", "| --- | --- | --- | --- | --- |"])
+        for file_name, finding in findings:
+            lines.append(
+                "| {file} | {rule_id} | {severity} | {title} | {remediation} |".format(
+                    file=_markdown_escape(file_name),
+                    rule_id=_markdown_escape(finding.get("rule_id", finding["id"])),
+                    severity=_markdown_escape(finding["severity"]),
+                    title=_markdown_escape(finding["title"]),
+                    remediation=_markdown_escape(finding["remediation"]),
+                )
+            )
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def _format_sarif(result):
     rules = {}
     sarif_results = []
@@ -451,11 +512,15 @@ def _format_sarif(result):
     ) + "\n"
 
 
-def _format_result(result, output_format):
+def _format_result(result, output_format, summary_only=False):
     if output_format == "json":
         return json.dumps(result, indent=2, sort_keys=True) + "\n"
     if output_format == "markdown":
+        if summary_only:
+            return _format_github_markdown(result, summary_only=True)
         return _format_markdown(result)
+    if output_format == "github-markdown":
+        return _format_github_markdown(result, summary_only=summary_only)
     if output_format == "sarif":
         return _format_sarif(result)
     raise ValueError(f"Unsupported format: {output_format}")
@@ -525,7 +590,8 @@ def _has_failure_at_threshold(reports, threshold):
 def run(argv=None):
     parser = argparse.ArgumentParser(description="Lint autonomous-agent config files for risky capability combinations")
     parser.add_argument("paths", nargs="*", help="Config file or directory paths. Directories are scanned recursively for JSON, YAML, and TOML files.")
-    parser.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
+    parser.add_argument("--format", choices=["json", "markdown", "github-markdown", "sarif"], default="json")
+    parser.add_argument("--summary-only", action="store_true", help="Emit only the concise summary section for PR comments or chat/CI logs")
     parser.add_argument("--baseline", help="JSON, YAML, or TOML file containing accepted finding suppressions")
     parser.add_argument("--policy", help="JSON, YAML, or TOML policy file with severity overrides, rule disables, and allowlists")
     parser.add_argument("--generate-baseline", help="Write current findings as baseline suppressions to this JSON file")
@@ -628,7 +694,7 @@ def run(argv=None):
         if failed and exit_code == 0:
             exit_code = 1
 
-    return exit_code, _format_result(result, args.format)
+    return exit_code, _format_result(result, args.format, summary_only=args.summary_only)
 
 
 def main(argv=None):

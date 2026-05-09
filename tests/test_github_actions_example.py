@@ -20,8 +20,8 @@ class GitHubActionsExampleTests(unittest.TestCase):
         self.assertIn("agent-config-lint", run_commands)
         self.assertIn("--format sarif", run_commands)
         self.assertIn("agent-config-linter.sarif", run_commands)
-        self.assertIn("github/codeql-action/upload-sarif@v3", used_actions)
-        upload_step = next(step for step in steps if step.get("uses") == "github/codeql-action/upload-sarif@v3")
+        self.assertIn("github/codeql-action/upload-sarif@v4", used_actions)
+        upload_step = next(step for step in steps if step.get("uses") == "github/codeql-action/upload-sarif@v4")
         self.assertEqual(upload_step["with"]["sarif_file"], "agent-config-linter.sarif")
 
 

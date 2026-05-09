@@ -435,6 +435,45 @@ class LinterTests(unittest.TestCase):
         self.assertEqual(baseline_exit_code, 2)
         self.assertIn("expires_at", json.loads(baseline_output)["errors"][0]["message"])
 
+    def test_cli_min_severity_filters_active_findings_and_recomputes_summary(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}, "model": "small-local-7b"}))
+
+            exit_code, output = run([str(config_path), "--min-severity", "high", "--format", "json"])
+
+        self.assertEqual(exit_code, 0)
+        report = json.loads(output)["files"][0]
+        self.assertEqual({finding["id"] for finding in report["findings"]}, {"shell_enabled"})
+        self.assertEqual(report["summary"], {"critical": 0, "high": 1, "medium": 0, "low": 0})
+        self.assertEqual(report["filtered_summary"]["medium"], 1)
+
+    def test_cli_fail_on_returns_nonzero_for_configured_threshold(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.json"
+            config_path.write_text(json.dumps({"tools": {"shell": True}}))
+
+            failing_exit_code, failing_output = run([str(config_path), "--fail-on", "high", "--format", "json"])
+            passing_exit_code, passing_output = run([str(config_path), "--fail-on", "critical", "--format", "json"])
+
+        self.assertEqual(failing_exit_code, 1)
+        self.assertEqual(json.loads(failing_output)["exit_policy"], {"fail_on": "high", "failed": True})
+        self.assertEqual(passing_exit_code, 0)
+        self.assertEqual(json.loads(passing_output)["exit_policy"], {"fail_on": "critical", "failed": False})
+
+    def test_cli_emits_version_without_path(self):
+        from agent_config_linter import __version__
+        from agent_config_linter.cli import run
+
+        exit_code, output = run(["--version"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(output.strip(), f"agent-config-linter {__version__}")
+
 
 if __name__ == "__main__":
     unittest.main()

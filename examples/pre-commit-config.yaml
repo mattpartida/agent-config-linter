@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: agent-config-linter
+        name: agent-config-linter
+        entry: agent-config-lint --fail-on high --min-severity medium --format json
+        language: system
+        pass_filenames: true
+        types_or: [json, yaml]

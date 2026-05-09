@@ -11,9 +11,11 @@ from pathlib import Path
 
 import yaml
 
+from . import __version__
 from .linter import lint_config
 
 SEVERITIES = ("critical", "high", "medium", "low")
+SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
@@ -424,15 +426,53 @@ def _stale_suppressions(suppressions, matched_suppression_ids):
     return [suppression for suppression in suppressions if id(suppression) not in matched_suppression_ids]
 
 
+def _severity_at_or_above(severity, threshold):
+    return SEVERITY_RANK[severity] <= SEVERITY_RANK[threshold]
+
+
+def _apply_min_severity(report, threshold):
+    if not threshold:
+        return report
+    remaining_findings = []
+    filtered_findings = []
+    for finding in report.get("findings", []):
+        if _severity_at_or_above(finding["severity"], threshold):
+            remaining_findings.append(finding)
+        else:
+            filtered_findings.append(finding)
+    report["findings"] = remaining_findings
+    report["filtered_findings"] = filtered_findings
+    report["filtered_summary"] = {
+        severity: sum(1 for finding in filtered_findings if finding["severity"] == severity) for severity in SEVERITIES
+    }
+    return _finalize_report(report)
+
+
+def _has_failure_at_threshold(reports, threshold):
+    return any(
+        _severity_at_or_above(finding["severity"], threshold)
+        for report in reports
+        for finding in report.get("findings", [])
+    )
+
+
 def run(argv=None):
     parser = argparse.ArgumentParser(description="Lint autonomous-agent config files for risky capability combinations")
-    parser.add_argument("paths", nargs="+", help="Config file or directory paths. Directories are scanned recursively for JSON, YAML, and TOML files.")
+    parser.add_argument("paths", nargs="*", help="Config file or directory paths. Directories are scanned recursively for JSON, YAML, and TOML files.")
     parser.add_argument("--format", choices=["json", "markdown", "sarif"], default="json")
     parser.add_argument("--baseline", help="JSON, YAML, or TOML file containing accepted finding suppressions")
     parser.add_argument("--policy", help="JSON, YAML, or TOML policy file with severity overrides, rule disables, and allowlists")
     parser.add_argument("--generate-baseline", help="Write current findings as baseline suppressions to this JSON file")
     parser.add_argument("--fail-on-stale-baseline", action="store_true", help="Exit non-zero when baseline suppressions no longer match any finding")
+    parser.add_argument("--min-severity", choices=SEVERITIES, help="Only include active findings at or above this severity")
+    parser.add_argument("--fail-on", choices=SEVERITIES, help="Exit with code 1 when active findings meet or exceed this severity")
+    parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
+
+    if args.version:
+        return 0, f"agent-config-linter {__version__}\n"
+    if not args.paths:
+        parser.error("the following arguments are required: paths")
 
     result = {"schema_version": "0.1", "files": [], "errors": []}
     exit_code = 0
@@ -484,6 +524,8 @@ def run(argv=None):
                     report = _apply_policy(report, path, policy)
                 if args.baseline:
                     report = _apply_baseline(report, path, suppressions, matched_suppression_ids)
+                if args.min_severity:
+                    report = _apply_min_severity(report, args.min_severity)
                 result["files"].append(report)
             except OSError as exc:
                 exit_code = 2
@@ -510,6 +552,12 @@ def run(argv=None):
         except OSError as exc:
             exit_code = 2
             result["errors"].append({"path": str(baseline_path), "message": str(exc)})
+
+    if args.fail_on:
+        failed = _has_failure_at_threshold(result["files"], args.fail_on)
+        result["exit_policy"] = {"fail_on": args.fail_on, "failed": failed}
+        if failed and exit_code == 0:
+            exit_code = 1
 
     return exit_code, _format_result(result, args.format)
 

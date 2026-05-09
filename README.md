@@ -36,6 +36,8 @@ agent-config-lint path/to/config-directory --baseline agent-config-linter-baseli
 agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --format json
 agent-config-lint path/to/config-directory --generate-baseline agent-config-linter-baseline.json --format json
 agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --fail-on-stale-baseline --format json
+agent-config-lint path/to/config-directory --min-severity medium --fail-on high --format json
+agent-config-lint --version
 ```
 
 Output includes:
@@ -48,6 +50,8 @@ Output includes:
 - optional `policy_suppressed_findings` and `policy_suppressed_summary` when a policy disables or allowlists findings
 - optional `suppressed_findings` and `suppressed_summary` when a baseline is provided
 - optional `baseline.stale_suppressions`/`baseline.stale_count` for baseline cleanup
+- optional `filtered_findings`/`filtered_summary` when `--min-severity` filters low-priority findings
+- optional `exit_policy` when `--fail-on` is used for CI gating
 - `recommended_next_actions`
 
 Formats:
@@ -68,6 +72,8 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/config-shapes --format
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --baseline examples/agent-config-linter-baseline.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --generate-baseline /tmp/agent-config-linter-baseline.json --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --min-severity medium --fail-on high --format json
+PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
 ## GitHub code scanning
@@ -144,6 +150,29 @@ Each suppression must include `rule_id`, `finding_id`, or `id`, plus an optional
 - `expires_at`: ISO `YYYY-MM-DD` date. Expired suppressions do not match active findings.
 
 Use `--generate-baseline path/to/baseline.json` to write the current active findings as suppressions with TODO lifecycle metadata. When an existing baseline is supplied, stale suppressions that no longer match any finding are reported under `baseline.stale_suppressions`; add `--fail-on-stale-baseline` to return exit code `1` when cleanup is needed.
+
+## CI and developer experience
+
+Use staged severity filters and exit-code gates to adopt the linter without blocking on every low-priority finding immediately:
+
+```bash
+agent-config-lint configs/ --min-severity medium --fail-on high --format json
+```
+
+- `--min-severity {critical,high,medium,low}` keeps only active findings at or above the threshold and reports lower-severity findings under `filtered_findings`/`filtered_summary`.
+- `--fail-on {critical,high,medium,low}` returns exit code `1` when remaining active findings meet or exceed the threshold and records the decision under `exit_policy`.
+- Validation/config errors still return exit code `2`.
+- `--fail-on-stale-baseline` also returns exit code `1` when stale baseline cleanup is needed.
+
+Examples for local adoption are included in:
+
+- `examples/pre-commit-config.yaml`
+- `examples/Taskfile.yml`
+- `docs/sample-agent-config-linter.sarif`
+
+## Packaging and releases
+
+Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, and publish via PyPI trusted publishing. See `CHANGELOG.md` and `docs/release-checklist.md` before tagging.
 
 ## Config-shape fixtures
 
@@ -227,17 +256,17 @@ The MVP is now usable as a local/CI linter. The next roadmap focuses on making f
 
 ### 3. CI and developer-experience polish
 
-- Add documented exit-code modes, including fail on `high` or `critical` findings only.
-- Add `--min-severity` and `--fail-on` flags for staged adoption.
-- Add examples for GitHub Actions, pre-commit, and local make/task runners.
-- Publish a small sample SARIF artifact in docs so users can preview code-scanning output.
+- Shipped: documented exit-code modes, including fail on `high` or `critical` findings only.
+- Shipped: `--min-severity` and `--fail-on` flags for staged adoption.
+- Shipped: examples for GitHub Actions, pre-commit, and local Taskfile runners.
+- Shipped: sample SARIF artifact in docs so users can preview code-scanning output.
 
 ### 4. Packaging and distribution
 
-- Add release automation for tagged PyPI publishes.
-- Add version output via `agent-config-lint --version`.
-- Add a changelog and release checklist.
-- Add package metadata classifiers, keywords, and project URLs.
+- Shipped: release automation for tagged PyPI publishes.
+- Shipped: version output via `agent-config-lint --version`.
+- Shipped: changelog and release checklist.
+- Shipped: package metadata classifiers, keywords, and project URLs.
 
 ### 5. Security regression corpus
 

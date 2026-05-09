@@ -1,0 +1,124 @@
+{
+  "errors": [],
+  "files": [
+    {
+      "findings": [
+        {
+          "evidence": "Agent can run local commands",
+          "evidence_paths": [
+            "tools.shell"
+          ],
+          "id": "shell_enabled",
+          "remediation": "Require explicit approval and sandbox shell execution.",
+          "rule_id": "ACL-001",
+          "rule_name": "shell-enabled",
+          "severity": "high",
+          "title": "Shell execution is enabled"
+        },
+        {
+          "evidence": "Filesystem roots include broad or unrestricted paths",
+          "evidence_paths": [
+            "tools.filesystem"
+          ],
+          "id": "filesystem_broad_access",
+          "remediation": "Constrain file access to project-scoped allowlists.",
+          "rule_id": "ACL-002",
+          "rule_name": "filesystem-broad-access",
+          "severity": "high",
+          "title": "Broad filesystem access"
+        },
+        {
+          "evidence": "Browser config permits LAN/localhost/private network access",
+          "evidence_paths": [],
+          "id": "browser_private_network",
+          "remediation": "Block private network ranges unless explicitly needed.",
+          "rule_id": "ACL-003",
+          "rule_name": "browser-private-network",
+          "severity": "high",
+          "title": "Browser can reach private network"
+        },
+        {
+          "evidence": "Untrusted content, private data, and outbound action all appear enabled",
+          "evidence_paths": [
+            "inputs.web",
+            "inputs.discord",
+            "inputs.discord.enabled",
+            "tools.filesystem",
+            "tools.filesystem.enabled",
+            "tools.email",
+            "tools.email.enabled",
+            "memory",
+            "memory.enabled",
+            "memory.write",
+            "tools.browser",
+            "tools.browser.enabled",
+            "tools.browser.private_network"
+          ],
+          "id": "lethal_trifecta",
+          "remediation": "Break at least one leg with isolation, deny-by-default tools, or approval gates.",
+          "rule_id": "ACL-004",
+          "rule_name": "lethal-trifecta",
+          "severity": "critical",
+          "title": "Lethal trifecta present"
+        },
+        {
+          "evidence": "Approvals config disables one or more high-risk action gates",
+          "evidence_paths": [],
+          "id": "approval_gate_missing",
+          "remediation": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes.",
+          "rule_id": "ACL-008",
+          "rule_name": "approval-gate-missing",
+          "severity": "critical",
+          "title": "Approval gate disabled for dangerous action"
+        },
+        {
+          "evidence": "Model name suggests small/local/uncensored configuration",
+          "evidence_paths": [
+            "model"
+          ],
+          "id": "weak_model_risk",
+          "remediation": "Use stronger models for adversarial routing or add stricter tool gates.",
+          "rule_id": "ACL-009",
+          "rule_name": "weak-model-risk",
+          "severity": "medium",
+          "title": "Model may be weaker against prompt injection"
+        }
+      ],
+      "path": "examples/high-risk-agent.json",
+      "recommended_next_actions": [
+        "Require explicit approval and sandbox shell execution.",
+        "Constrain file access to project-scoped allowlists.",
+        "Block private network ranges unless explicitly needed.",
+        "Break at least one leg with isolation, deny-by-default tools, or approval gates.",
+        "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes."
+      ],
+      "risk_level": "critical",
+      "schema": {
+        "adapter": "generic"
+      },
+      "schema_version": "0.1",
+      "score": 130,
+      "signals": {
+        "enabled_capabilities": [
+          "browser_private_network",
+          "code_execution",
+          "destructive_actions",
+          "filesystem_broad_access",
+          "network_egress",
+          "outbound_actions",
+          "private_data_access",
+          "shell_enabled",
+          "untrusted_inputs"
+        ],
+        "lethal_trifecta": true
+      },
+      "summary": {
+        "critical": 2,
+        "high": 3,
+        "low": 0,
+        "medium": 1
+      }
+    }
+  ],
+  "schema_version": "0.1"
+}

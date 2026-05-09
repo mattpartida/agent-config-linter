@@ -19,6 +19,13 @@ SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
+
+class ConfigValidationError(ValueError):
+    def __init__(self, message, field=None):
+        super().__init__(message)
+        self.field = field
+
+
 SARIF_LEVELS = {
     "critical": "error",
     "high": "error",
@@ -76,29 +83,48 @@ def _load_baseline(path):
 def _load_policy(path):
     policy = _load_config(path)
     if not isinstance(policy, dict):
-        raise ValueError("Policy must be a mapping")
+        raise ConfigValidationError("Policy must be a mapping", "<root>")
 
     severity_overrides = policy.get("severity_overrides", policy.get("severities", {}))
+    severity_field = "severity_overrides" if "severity_overrides" in policy or "severities" not in policy else "severities"
     if not isinstance(severity_overrides, dict):
-        raise ValueError("Policy severity_overrides must be a mapping")
+        raise ConfigValidationError("Policy severity_overrides must be a mapping", severity_field)
     for rule, severity in severity_overrides.items():
+        field = f"{severity_field}.{rule}"
         if severity not in SEVERITIES:
-            raise ValueError(f"Invalid severity for {rule}: {severity}")
+            raise ConfigValidationError(f"Invalid severity for {rule}: {severity}", field)
 
     disabled_rules = policy.get("disabled_rules", policy.get("rule_disables", []))
+    disabled_field = "disabled_rules" if "disabled_rules" in policy or "rule_disables" not in policy else "rule_disables"
     if isinstance(disabled_rules, str):
         disabled_rules = [disabled_rules]
-    if not isinstance(disabled_rules, list) or not all(isinstance(rule, str) for rule in disabled_rules):
-        raise ValueError("Policy disabled_rules must be a list of rule IDs or finding IDs")
+    if not isinstance(disabled_rules, list):
+        raise ConfigValidationError("Policy disabled_rules must be a list of rule IDs or finding IDs", disabled_field)
+    for index, rule in enumerate(disabled_rules):
+        if not isinstance(rule, str):
+            raise ConfigValidationError("Policy disabled_rules entries must be strings", f"{disabled_field}[{index}]")
 
     allowlists = policy.get("allowlists", {})
     if allowlists is None:
         allowlists = {}
     if not isinstance(allowlists, dict):
-        raise ValueError("Policy allowlists must be a mapping")
+        raise ConfigValidationError("Policy allowlists must be a mapping", "allowlists")
     for key in ("paths", "tools", "rules"):
         if key in allowlists and not isinstance(allowlists[key], list):
-            raise ValueError(f"Policy allowlists.{key} must be a list")
+            raise ConfigValidationError(f"Policy allowlists.{key} must be a list", f"allowlists.{key}")
+    for key in ("tools", "rules"):
+        for index, value in enumerate(allowlists.get(key, [])):
+            if not isinstance(value, str):
+                raise ConfigValidationError(f"Policy allowlists.{key} entries must be strings", f"allowlists.{key}[{index}]")
+    for index, entry in enumerate(allowlists.get("paths", [])):
+        field_prefix = f"allowlists.paths[{index}]"
+        if not isinstance(entry, dict):
+            raise ConfigValidationError("Policy allowlists.paths entries must be mappings", field_prefix)
+        if "path" not in entry:
+            raise ConfigValidationError("Policy allowlists.paths entries require a path", f"{field_prefix}.path")
+        for field_name in ("path", "rule_id", "id", "reason"):
+            if field_name in entry and not isinstance(entry[field_name], str):
+                raise ConfigValidationError(f"Policy {field_prefix}.{field_name} must be a string", f"{field_prefix}.{field_name}")
 
     return {
         "severity_overrides": dict(severity_overrides),
@@ -540,7 +566,10 @@ def run(argv=None):
             result["errors"].append({"path": str(policy_path), "message": str(exc)})
         except ValueError as exc:
             exit_code = 2
-            result["errors"].append({"path": str(policy_path), "message": str(exc)})
+            error = {"path": str(policy_path), "message": str(exc)}
+            if getattr(exc, "field", None):
+                error["field"] = exc.field
+            result["errors"].append(error)
 
     for raw_path in args.paths:
         input_path = Path(raw_path)

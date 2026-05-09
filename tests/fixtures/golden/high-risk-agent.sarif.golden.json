@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/high-risk-agent.json"
+                },
+                "region": {
+                  "startLine": 4
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Shell execution is enabled: Agent can run local commands"
+          },
+          "properties": {
+            "evidence_paths": [
+              "tools.shell"
+            ],
+            "finding_id": "shell_enabled",
+            "remediation": "Require explicit approval and sandbox shell execution."
+          },
+          "ruleId": "ACL-001"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/high-risk-agent.json"
+                },
+                "region": {
+                  "startLine": 5
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broad filesystem access: Filesystem roots include broad or unrestricted paths"
+          },
+          "properties": {
+            "evidence_paths": [
+              "tools.filesystem"
+            ],
+            "finding_id": "filesystem_broad_access",
+            "remediation": "Constrain file access to project-scoped allowlists."
+          },
+          "ruleId": "ACL-002"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/high-risk-agent.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Browser can reach private network: Browser config permits LAN/localhost/private network access"
+          },
+          "properties": {
+            "evidence_paths": [],
+            "finding_id": "browser_private_network",
+            "remediation": "Block private network ranges unless explicitly needed."
+          },
+          "ruleId": "ACL-003"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/high-risk-agent.json"
+                },
+                "region": {
+                  "startLine": 2
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Lethal trifecta present: Untrusted content, private data, and outbound action all appear enabled"
+          },
+          "properties": {
+            "evidence_paths": [
+              "inputs.web",
+              "inputs.discord",
+              "inputs.discord.enabled",
+              "tools.filesystem",
+              "tools.filesystem.enabled",
+              "tools.email",
+              "tools.email.enabled",
+              "memory",
+              "memory.enabled",
+              "memory.write",
+              "tools.browser",
+              "tools.browser.enabled",
+              "tools.browser.private_network"
+            ],
+            "finding_id": "lethal_trifecta",
+            "remediation": "Break at least one leg with isolation, deny-by-default tools, or approval gates."
+          },
+          "ruleId": "ACL-004"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/high-risk-agent.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Approval gate disabled for dangerous action: Approvals config disables one or more high-risk action gates"
+          },
+          "properties": {
+            "evidence_paths": [],
+            "finding_id": "approval_gate_missing",
+            "remediation": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes."
+          },
+          "ruleId": "ACL-008"
+        },
+        {
+          "level": "warning",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "examples/high-risk-agent.json"
+                },
+                "region": {
+                  "startLine": 11
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Model may be weaker against prompt injection: Model name suggests small/local/uncensored configuration"
+          },
+          "properties": {
+            "evidence_paths": [
+              "model"
+            ],
+            "finding_id": "weak_model_risk",
+            "remediation": "Use stronger models for adversarial routing or add stricter tool gates."
+          },
+          "ruleId": "ACL-009"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/mattpartida/agent-config-linter",
+          "name": "agent-config-linter",
+          "rules": [
+            {
+              "fullDescription": {
+                "text": "Agent can run local commands"
+              },
+              "help": {
+                "text": "Require explicit approval and sandbox shell execution."
+              },
+              "id": "ACL-001",
+              "name": "shell-enabled",
+              "properties": {
+                "finding_id": "shell_enabled",
+                "severity": "high"
+              },
+              "shortDescription": {
+                "text": "Shell execution is enabled"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Filesystem roots include broad or unrestricted paths"
+              },
+              "help": {
+                "text": "Constrain file access to project-scoped allowlists."
+              },
+              "id": "ACL-002",
+              "name": "filesystem-broad-access",
+              "properties": {
+                "finding_id": "filesystem_broad_access",
+                "severity": "high"
+              },
+              "shortDescription": {
+                "text": "Broad filesystem access"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Browser config permits LAN/localhost/private network access"
+              },
+              "help": {
+                "text": "Block private network ranges unless explicitly needed."
+              },
+              "id": "ACL-003",
+              "name": "browser-private-network",
+              "properties": {
+                "finding_id": "browser_private_network",
+                "severity": "high"
+              },
+              "shortDescription": {
+                "text": "Browser can reach private network"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Untrusted content, private data, and outbound action all appear enabled"
+              },
+              "help": {
+                "text": "Break at least one leg with isolation, deny-by-default tools, or approval gates."
+              },
+              "id": "ACL-004",
+              "name": "lethal-trifecta",
+              "properties": {
+                "finding_id": "lethal_trifecta",
+                "severity": "critical"
+              },
+              "shortDescription": {
+                "text": "Lethal trifecta present"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Approvals config disables one or more high-risk action gates"
+              },
+              "help": {
+                "text": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes."
+              },
+              "id": "ACL-008",
+              "name": "approval-gate-missing",
+              "properties": {
+                "finding_id": "approval_gate_missing",
+                "severity": "critical"
+              },
+              "shortDescription": {
+                "text": "Approval gate disabled for dangerous action"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Model name suggests small/local/uncensored configuration"
+              },
+              "help": {
+                "text": "Use stronger models for adversarial routing or add stricter tool gates."
+              },
+              "id": "ACL-009",
+              "name": "weak-model-risk",
+              "properties": {
+                "finding_id": "weak_model_risk",
+                "severity": "medium"
+              },
+              "shortDescription": {
+                "text": "Model may be weaker against prompt injection"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

@@ -93,6 +93,8 @@
 
 ### 5. Add policy schema documentation and validation output
 
+**Status:** Shipped. Added `docs/policy-schema.md` with minimal, staged-adoption, and strict CI examples. Policy validation errors now include machine-readable field paths such as `severity_overrides.ACL-001` and `allowlists.paths[0].rule_id`.
+
 **Why:** Policy files are adoption-critical. Users need copy-pasteable schemas and better validation errors before wiring this into CI.
 
 **Deliverables:**
@@ -107,6 +109,8 @@
 - Docs show minimal, staged-adoption, and strict CI policy examples.
 
 ### 6. Add report stability tests
+
+**Status:** Shipped. Added JSON, Markdown, and SARIF golden-output fixtures plus `tests/test_report_golden.py`. `docs/report-stability.md` documents the intentional-update workflow and `schema_version` checklist, and README now documents report compatibility expectations.
 
 **Why:** CI users will integrate against JSON fields and SARIF shape. Report drift should be deliberate.
 

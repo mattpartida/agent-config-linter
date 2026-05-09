@@ -54,6 +54,10 @@ Output includes:
 - optional `exit_policy` when `--fail-on` is used for CI gating
 - `recommended_next_actions`
 
+## Report compatibility
+
+Machine-readable JSON reports include `schema_version`. Additive fields may ship without changing `schema_version`, but removing or renaming fields, changing finding identity keys, or changing suppression semantics should trigger a schema review. Golden-output tests in `tests/test_report_golden.py` guard JSON, Markdown, and SARIF report shape; see `docs/report-stability.md` before intentionally updating report output.
+
 Formats:
 
 - Config inputs: `.json`, `.yaml`, `.yml`, and `.toml` files.
@@ -122,7 +126,7 @@ Use `--policy` to adapt default findings to org-specific risk decisions while ke
 - `allowlists.rules` suppresses matching rule IDs, rule names, or finding IDs.
 - `allowlists.paths` suppresses matching path globs, optionally narrowed by `rule_id` or `id`.
 
-Invalid policy files are rejected before linting with exit code `2`.
+Invalid policy files are rejected before linting with exit code `2`. Validation errors include machine-readable field paths such as `allowlists.paths[0].rule_id`; see [docs/policy-schema.md](docs/policy-schema.md) for minimal, staged-adoption, and strict CI examples.
 
 ## Baselines and suppressions
 

@@ -238,42 +238,13 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The MVP is now usable as a local/CI linter. The next roadmap focuses on making findings more precise, easier to adopt in real repos, and safer to run as a security gate.
+The previous MVP roadmap is complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, and the first security regression corpus have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
-### 1. Policy and severity configuration
+Next focus areas:
 
-- Shipped: `--policy` flag for JSON/YAML/TOML policy files.
-- Shipped: severity overrides, disabled rules, and org-specific path/tool/rule allowlists.
-- Shipped: stable default severities when no policy is supplied.
-- Shipped: policy validation with clear errors before linting configs.
-
-### 2. Baseline lifecycle tooling
-
-- Shipped: `--generate-baseline` writes current findings as suppressions.
-- Shipped: `expires_at`, `owner`, and `ticket` fields in suppression examples and validation.
-- Shipped: stale suppressions that no longer match any finding are reported in JSON output.
-- Shipped: `--fail-on-stale-baseline` for CI cleanup.
-
-### 3. CI and developer-experience polish
-
-- Shipped: documented exit-code modes, including fail on `high` or `critical` findings only.
-- Shipped: `--min-severity` and `--fail-on` flags for staged adoption.
-- Shipped: examples for GitHub Actions, pre-commit, and local Taskfile runners.
-- Shipped: sample SARIF artifact in docs so users can preview code-scanning output.
-
-### 4. Packaging and distribution
-
-- Shipped: release automation for tagged PyPI publishes.
-- Shipped: version output via `agent-config-lint --version`.
-- Shipped: changelog and release checklist.
-- Shipped: package metadata classifiers, keywords, and project URLs.
-
-### 5. Security regression corpus
-
-- Shipped: `tests/fixtures/regression/` with known risky and safe configs.
-- Shipped: regression cases for prompt-injection-to-exfiltration bridges, unattended tool use, private-network browser exposure, and weak approval gates.
-- Shipped: safe negative fixtures for approval-gated shell, read-only project files, and public-only browser access.
-- Shipped: `docs/rule-coverage.md` tracks rule-to-fixture coverage and the fixture requirements for new rules.
+1. Precision and coverage: close fixture gaps for all rules, improve composite evidence paths/SARIF locations, and split broad filesystem risk from scoped write access.
+2. Real-world schema support: add fixture-backed adapters for more agent runtimes and improve policy validation/docs.
+3. Adoption and distribution: harden the first public release, improve PR-comment/chat-friendly output, and explore a lightweight rule-pack architecture.
 
 ## Development
 

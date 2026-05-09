@@ -184,6 +184,21 @@ class LinterTests(unittest.TestCase):
         self.assertEqual(write_finding["rule_id"], "ACL-010")
         self.assertEqual(write_finding["evidence_paths"], ["tools.filesystem"])
 
+    def test_project_scoped_filesystem_write_does_not_trigger_broad_access(self):
+        report = lint_config({"tools": {"filesystem": {"enabled": True, "mode": "rw", "paths": ["./workspace"]}}})
+
+        finding_ids = {finding["id"] for finding in report["findings"]}
+
+        self.assertIn("filesystem_write_access", finding_ids)
+        self.assertNotIn("filesystem_broad_access", finding_ids)
+
+    def test_root_and_home_filesystem_paths_still_trigger_broad_access(self):
+        for root in ("/", "~", "$HOME", "*"):
+            with self.subTest(root=root):
+                report = lint_config({"tools": {"filesystem": {"enabled": True, "mode": "ro", "paths": [root]}}})
+
+                self.assertIn("filesystem_broad_access", {finding["id"] for finding in report["findings"]})
+
     def test_sarif_points_to_source_line_for_evidence_path(self):
         from agent_config_linter.cli import run
 

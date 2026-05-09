@@ -5,7 +5,7 @@ Stable rule IDs are included in JSON findings and SARIF output so CI systems, ba
 | Rule ID | Finding ID | Severity | What it catches |
 | --- | --- | --- | --- |
 | ACL-001 | `shell_enabled` | high | Shell, terminal, subprocess, or language-runtime execution enabled. |
-| ACL-002 | `filesystem_broad_access` | high | Broad filesystem roots or write-capable filesystem access. |
+| ACL-002 | `filesystem_broad_access` | high | Broad filesystem roots such as `/`, `~`, `$HOME`, `*`, or unrestricted host mappings. |
 | ACL-003 | `browser_private_network` | high | Browser access to localhost, LAN, or private network ranges. |
 | ACL-004 | `lethal_trifecta` | critical | Untrusted inputs, private data access, and outbound actions enabled together. |
 | ACL-005 | `prompt_injection_exfiltration_bridge` | critical | Untrusted input can reach code execution with secrets and network egress. |
@@ -27,3 +27,7 @@ Stable rule IDs are included in JSON findings and SARIF output so CI systems, ba
 - JSON: complete native report with `rule_id` and `rule_name` on every finding.
 - Markdown: human-readable report suitable for PR comments and chat handoff.
 - SARIF: GitHub code scanning compatible output keyed by stable rule IDs.
+
+## Filesystem semantics
+
+`ACL-002 filesystem_broad_access` is reserved for broad roots such as `/`, `~`, `$HOME`, `*`, or unrestricted host mappings. Project-scoped writable paths such as `./workspace` or `~/project` no longer raise `ACL-002` solely because they are write-capable; they raise `ACL-010 filesystem_write_access` instead. This may reduce high-severity `ACL-002` counts in existing baselines while preserving the write-access finding for scoped writable mounts.

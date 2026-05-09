@@ -80,6 +80,37 @@ class ConfigShapeFixtureTests(unittest.TestCase):
         self.assertIn("shell_enabled", {finding["id"] for finding in report["findings"]})
         self.assertIn("outbound_actions", report["signals"]["enabled_capabilities"])
 
+    def test_claude_desktop_mcp_fixture_detects_shell_secrets_and_outbound_tools(self):
+        report = lint_config(load_config(FIXTURE_DIR / "claude-desktop-risky-mcp.json"))
+
+        finding_ids = {finding["id"] for finding in report["findings"]}
+        self.assertEqual(report["schema"]["adapter"], "mcp")
+        self.assertIn("shell_enabled", finding_ids)
+        self.assertIn("secrets_access", report["signals"]["enabled_capabilities"])
+        self.assertIn("outbound_actions", report["signals"]["enabled_capabilities"])
+
+    def test_claude_desktop_mcp_safe_fixture_has_no_findings(self):
+        report = lint_config(load_config(FIXTURE_DIR / "claude-desktop-safe-mcp.json"))
+
+        self.assertEqual(report["schema"]["adapter"], "mcp")
+        self.assertEqual(report["findings"], [])
+
+    def test_github_actions_agent_fixture_detects_write_token_secrets_and_unattended_shell(self):
+        report = lint_config(load_config(FIXTURE_DIR / "github-actions-agent-risky.yml"))
+
+        finding_ids = {finding["id"] for finding in report["findings"]}
+        self.assertEqual(report["schema"]["adapter"], "github_actions")
+        self.assertIn("shell_enabled", finding_ids)
+        self.assertIn("unattended_dangerous_tools", finding_ids)
+        self.assertIn("secrets_access", report["signals"]["enabled_capabilities"])
+        self.assertIn("outbound_actions", report["signals"]["enabled_capabilities"])
+
+    def test_github_actions_agent_safe_fixture_ignores_readonly_workflow(self):
+        report = lint_config(load_config(FIXTURE_DIR / "github-actions-agent-safe.yml"))
+
+        self.assertEqual(report["schema"]["adapter"], "github_actions")
+        self.assertEqual(report["findings"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

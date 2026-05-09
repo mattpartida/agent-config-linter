@@ -49,6 +49,8 @@
 
 ### 3. Split broad filesystem and write-access semantics
 
+**Status:** Shipped. `ACL-002` now focuses on broad roots/unrestricted filesystem mappings, while project-scoped writable paths raise `ACL-010` without also raising `ACL-002`. `docs/rules.md` includes the migration note.
+
 **Why:** `filesystem_broad_access` currently treats write-capable project-scoped access as broad. That is conservative, but users need clearer distinction between broad read access and scoped write access.
 
 **Deliverables:**
@@ -65,6 +67,8 @@
 ## Mid term: real-world schema support
 
 ### 4. Add adapter fixtures for more agent runtimes
+
+**Status:** Shipped. Added fixture-backed `mcp` and `github_actions` adapters, with risky and safe examples under `examples/config-shapes/`; README documents the supported fields and ignored-fields boundary.
 
 **Why:** The linter becomes more useful when it understands how popular runtimes encode tools, approvals, secrets, memory, and egress.
 

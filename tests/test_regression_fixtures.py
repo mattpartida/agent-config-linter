@@ -34,6 +34,7 @@ RISKY_FIXTURES = {
 SAFE_FIXTURES = {
     "safe-approval-gated-shell.yaml": {"approval_gate_missing", "unattended_dangerous_tools"},
     "safe-readonly-project-files.yaml": {"filesystem_broad_access", "filesystem_write_access"},
+    "safe-project-scoped-write-files.yaml": {"filesystem_broad_access"},
     "safe-browser-public-only.yaml": {"browser_private_network"},
     "safe-privileged-infra-readonly.yaml": {"privileged_infra_control"},
     "safe-strong-model.yaml": {"weak_model_risk"},

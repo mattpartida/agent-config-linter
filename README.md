@@ -176,11 +176,13 @@ Package metadata in `pyproject.toml` includes classifiers, keywords, project URL
 
 ## Config-shape fixtures
 
-The `examples/config-shapes/` directory contains representative Hermes/OpenClaw-style shapes used by tests and smoke checks:
+The `examples/config-shapes/` directory contains representative Hermes, OpenClaw, MCP, and GitHub Actions shapes used by tests and smoke checks:
 
 - `hermes-discord-shared.yaml`: shared Discord/group-chat agent with terminal, files, secrets, persistence, and network egress.
 - `hermes-personal-local.yaml`: personal local runtime with a local model and broad filesystem access.
 - `openclaw-browser-agent.json`: OpenClaw-style browser/web agent with private-network browser access.
+- `claude-desktop-risky-mcp.json` / `claude-desktop-safe-mcp.json`: MCP server maps that exercise shell/secrets/outbound normalization and the safe read-only boundary.
+- `github-actions-agent-risky.yml` / `github-actions-agent-safe.yml`: workflow snippets that exercise write permissions, secrets, unattended shell tools, and a read-only workflow boundary.
 
 Use these fixtures as starting points when adding schema-specific rules or testing integrations.
 
@@ -233,6 +235,8 @@ Supported adapters:
 - `hermes`: nested `hermes.enabled_toolsets`, `hermes.toolsets`, `hermes.channels`/`hermes.bindings`, `hermes.secrets`, and `hermes.network.egress`.
 - `openclaw`: nested `openclaw.browser.enabled`, `openclaw.browser.allowPrivateNetwork`/`privateNetwork`, `openclaw.browser.localhost`, and `openclaw.web`.
 - `openai`: OpenAI-compatible `tools` arrays, including `code_interpreter`, `computer_use`, and function tools whose names imply outbound sends such as email, Slack, Discord, Telegram, HTTP, or webhooks.
+- `mcp`: Claude Desktop / MCP-style `mcpServers` maps, including server command/arg names that imply shell, filesystem, or outbound tools, plus server `env` as credential access.
+- `github_actions`: GitHub Actions workflow snippets with `jobs`, `steps`, write-capable `permissions`, `${{ secrets.* }}` references, and unattended agent runs.
 
 Unsupported fields are ignored until they have fixture-backed tests. Add representative configs under `examples/config-shapes/` or `tests/fixtures/` before expanding adapter behavior.
 

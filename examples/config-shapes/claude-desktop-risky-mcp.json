@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "shell-operator": {
+      "command": "npx",
+      "args": ["-y", "mcp-shell-server"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "AWS_PROFILE": "prod-admin"
+      }
+    },
+    "webhook-sender": {
+      "command": "node",
+      "args": ["server.js", "--tool", "webhook"]
+    }
+  }
+}

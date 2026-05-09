@@ -1,0 +1,20 @@
+name: Agent deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run autonomous deployment agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUD_TOKEN: ${{ secrets.CLOUD_TOKEN }}
+        run: agent run --unattended --tool shell --tool webhook

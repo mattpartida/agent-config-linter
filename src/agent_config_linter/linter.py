@@ -108,10 +108,103 @@ def _normalize_openai_config(config):
     return normalized
 
 
+def _text_contains_any(value, fragments):
+    text = " ".join(str(item) for item in value) if isinstance(value, list) else str(value)
+    normalized = text.lower().replace("-", "_")
+    return any(fragment in normalized for fragment in fragments)
+
+
+def _normalize_mcp_config(config):
+    normalized = deepcopy(config)
+    servers = normalized.get("mcpServers") or normalized.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return normalized
+
+    tools = dict(normalized.get("tools", {})) if isinstance(normalized.get("tools"), dict) else {}
+    secrets = dict(normalized.get("secrets", {})) if isinstance(normalized.get("secrets"), dict) else {}
+    for server_name, server in servers.items():
+        if not isinstance(server, dict) or is_enabled(server.get("disabled")):
+            continue
+        command = server.get("command", "")
+        args = server.get("args", [])
+        server_text = [server_name, command, *args] if isinstance(args, list) else [server_name, command, args]
+        if _text_contains_any(server_text, {"shell", "terminal", "exec", "code_interpreter"}):
+            tools.setdefault("shell", {"enabled": True})
+        if _text_contains_any(server_text, {"filesystem", "file_system", "fs"}):
+            tools.setdefault("filesystem", {"enabled": True, "mode": "ro", "paths": ["./"]})
+        if _text_contains_any(server_text, {"browser", "http", "webhook", "slack", "discord", "telegram", "email", "send"}):
+            tools.setdefault("http", {"enabled": True})
+        if isinstance(server.get("env"), dict) and server["env"]:
+            secrets.setdefault("env", True)
+
+    if tools:
+        normalized["tools"] = tools
+    if secrets:
+        normalized["secrets"] = secrets
+    return normalized
+
+
+def _permissions_allow_write(value):
+    if isinstance(value, str):
+        return value.lower() in {"write", "admin"}
+    if isinstance(value, dict):
+        return any(_permissions_allow_write(child) for child in value.values())
+    return False
+
+
+def _normalize_github_actions_config(config):
+    normalized = deepcopy(config)
+    tools = dict(normalized.get("tools", {})) if isinstance(normalized.get("tools"), dict) else {}
+    secrets = dict(normalized.get("secrets", {})) if isinstance(normalized.get("secrets"), dict) else {}
+    autonomy = dict(normalized.get("autonomy", {})) if isinstance(normalized.get("autonomy"), dict) else {}
+
+    if _permissions_allow_write(normalized.get("permissions")):
+        tools.setdefault("github", {"enabled": True, "write": True})
+
+    jobs = normalized.get("jobs", {})
+    if isinstance(jobs, dict):
+        for job in jobs.values():
+            if not isinstance(job, dict):
+                continue
+            if _permissions_allow_write(job.get("permissions")):
+                tools.setdefault("github", {"enabled": True, "write": True})
+            steps = job.get("steps", [])
+            if not isinstance(steps, list):
+                continue
+            for step in steps:
+                if not isinstance(step, dict):
+                    continue
+                run = str(step.get("run", ""))
+                step_text = [step.get("name", ""), run]
+                if "secrets." in (str(step.get("env", {})) + run).lower():
+                    secrets.setdefault("env", True)
+                if _text_contains_any(step_text, {"unattended", "autonomous", "schedule"}):
+                    autonomy.setdefault("enabled", True)
+                    autonomy.setdefault("mode", "unattended")
+                if _text_contains_any(step_text, {"tool shell", " terminal", " exec", "bash", "python"}):
+                    tools.setdefault("shell", {"enabled": True})
+                if _text_contains_any(step_text, {"webhook", "http", "curl", "slack", "discord", "telegram", "email", "send"}):
+                    tools.setdefault("http", {"enabled": True})
+
+    if tools:
+        normalized["tools"] = tools
+    if secrets:
+        normalized["secrets"] = secrets
+    if autonomy:
+        normalized["autonomy"] = autonomy
+    return normalized
+
+
 def normalize_config(config):
     """Return (adapter name, normalized config) for known agent schema shapes."""
     if not isinstance(config, dict):
         return "generic", {}
+    if isinstance(config.get("mcpServers"), dict) or isinstance(config.get("mcp_servers"), dict):
+        return "mcp", _normalize_mcp_config(config)
+    if isinstance(config.get("jobs"), dict) and (
+        "permissions" in config or any(isinstance(job, dict) and "steps" in job for job in config.get("jobs", {}).values())
+    ):
+        return "github_actions", _normalize_github_actions_config(config)
     if isinstance(config.get("hermes"), dict):
         return "hermes", _normalize_hermes_config(config)
     if isinstance(config.get("openclaw"), dict):
@@ -181,7 +274,6 @@ def _filesystem_access_paths(config):
             broad_paths.append(path)
         if value.get("write") is True or value.get("mode") in {"rw", "write", "read-write"}:
             write_paths.append(path)
-            broad_paths.append(path)
     return sorted(set(broad_paths)), sorted(set(write_paths))
 
 
@@ -456,7 +548,7 @@ def lint_config(config):
             "filesystem_broad_access",
             "high",
             "Broad filesystem access",
-            "Filesystem roots include broad paths or write access",
+            "Filesystem roots include broad or unrestricted paths",
             "Constrain file access to project-scoped allowlists.",
             filesystem_broad_paths,
         )

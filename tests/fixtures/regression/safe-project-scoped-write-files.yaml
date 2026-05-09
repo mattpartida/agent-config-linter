@@ -1,0 +1,8 @@
+tools:
+  filesystem:
+    enabled: true
+    mode: rw
+    paths:
+      - ./workspace
+approvals:
+  filesystem: true

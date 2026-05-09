@@ -151,13 +151,18 @@ def walk_items(value, path=""):
             yield from walk_items(child, child_path)
 
 
-def _has_enabled_key(config, names):
+def _enabled_key_paths(config, names, prefix=""):
     names = {name.lower() for name in names}
+    paths = []
     for path, value in walk_items(config):
         parts = path.lower().replace("_", "-").split(".")
         if any(part in names or part.replace("-", "_") in names for part in parts) and is_enabled(value):
-            return True
-    return False
+            paths.append(f"{prefix}.{path}" if prefix else path)
+    return paths
+
+
+def _has_enabled_key(config, names):
+    return bool(_enabled_key_paths(config, names))
 
 
 def _filesystem_access_paths(config):
@@ -203,14 +208,18 @@ def _approval_missing(config):
     return False
 
 
-def _model_risk(config):
+def _model_risk_paths(config):
     model = str(config.get("model", "") if isinstance(config, dict) else "").lower()
     risky_fragments = ["small", "local", "7b", "3b", "uncensored", "abliterated", "abliteratus", "no-guard"]
-    return any(fragment in model for fragment in risky_fragments)
+    return ["model"] if any(fragment in model for fragment in risky_fragments) else []
 
 
-def _network_egress(config):
-    return _has_enabled_key(
+def _model_risk(config):
+    return bool(_model_risk_paths(config))
+
+
+def _network_egress_paths(config):
+    return _enabled_key_paths(
         config,
         {
             "api",
@@ -230,8 +239,12 @@ def _network_egress(config):
     )
 
 
-def _secrets_or_credentials_access(config):
-    return _has_enabled_key(
+def _network_egress(config):
+    return bool(_network_egress_paths(config))
+
+
+def _secrets_or_credentials_access_paths(config):
+    return _enabled_key_paths(
         config,
         {
             "api_key",
@@ -254,8 +267,12 @@ def _secrets_or_credentials_access(config):
     )
 
 
-def _destructive_actions(config):
-    if _has_enabled_key(
+def _secrets_or_credentials_access(config):
+    return bool(_secrets_or_credentials_access_paths(config))
+
+
+def _destructive_action_paths(config):
+    paths = _enabled_key_paths(
         config,
         {
             "admin",
@@ -270,37 +287,46 @@ def _destructive_actions(config):
             "trade",
             "write",
         },
-    ):
-        return True
+    )
     for path, value in walk_items(config):
         lower_path = path.lower().replace("_", "-")
         if not isinstance(value, dict) or not is_enabled(value):
             continue
         if any(name in lower_path for name in {"github", "filesystem", "file", "database", "db", "cloud"}):
             if any(is_enabled(value.get(flag)) for flag in ("write", "delete", "admin", "deploy", "merge", "force_push")):
-                return True
+                paths.append(path)
+                continue
             if str(value.get("mode", "")).lower() in {"rw", "write", "read-write", "admin"}:
-                return True
-    return False
+                paths.append(path)
+    return sorted(set(paths))
 
 
-def _unattended_autonomy(config):
+def _destructive_actions(config):
+    return bool(_destructive_action_paths(config))
+
+
+def _unattended_autonomy_paths(config):
+    paths = []
     for path, value in walk_items(config):
         lower_path = path.lower().replace("_", "-")
         if any(name in lower_path for name in {"autonomy", "schedule", "cron", "daemon", "background", "loop"}) and is_enabled(value):
             if isinstance(value, dict):
                 mode = str(value.get("mode", "")).lower()
-                if mode in {"unattended", "autonomous", "auto", "always-on"}:
-                    return True
-                if any(key in value for key in ("cron", "interval", "every", "schedule")):
-                    return True
+                if mode in {"unattended", "autonomous", "auto", "always-on"} or any(
+                    key in value for key in ("cron", "interval", "every", "schedule")
+                ):
+                    paths.append(path)
             else:
-                return True
-    return False
+                paths.append(path)
+    return sorted(set(paths))
 
 
-def _privileged_infra(config):
-    return _has_enabled_key(
+def _unattended_autonomy(config):
+    return bool(_unattended_autonomy_paths(config))
+
+
+def _privileged_infra_paths(config):
+    return _enabled_key_paths(
         config,
         {
             "aws",
@@ -315,6 +341,10 @@ def _privileged_infra(config):
             "vps",
         },
     )
+
+
+def _privileged_infra(config):
+    return bool(_privileged_infra_paths(config))
 
 
 def _approval_configured(config):
@@ -351,6 +381,7 @@ def _tool_enabled(config, names):
 
 def _add(findings, finding_id, severity, title, evidence, remediation, evidence_paths=None):
     rule_id, rule_name = RULE_IDS.get(finding_id, (finding_id, finding_id.replace("_", "-")))
+    unique_evidence_paths = list(dict.fromkeys(evidence_paths or []))
     findings.append(
         {
             "id": finding_id,
@@ -359,7 +390,7 @@ def _add(findings, finding_id, severity, title, evidence, remediation, evidence_
             "severity": severity,
             "title": title,
             "evidence": evidence,
-            "evidence_paths": sorted(set(evidence_paths or [])),
+            "evidence_paths": unique_evidence_paths,
             "remediation": remediation,
         }
     )
@@ -373,17 +404,37 @@ def lint_config(config):
     capabilities = []
     findings = []
 
-    untrusted_inputs = _has_enabled_key(config.get("inputs", config), {"web", "browser", "discord", "slack", "telegram", "email", "http", "rss", "webhook"})
-    private_data = _has_enabled_key(config, {"filesystem", "files", "memory", "notes", "gmail", "email", "drive", "github", "secrets", "env"})
-    outbound_actions = _has_enabled_key(config, {"email", "send_email", "send-email", "discord", "telegram", "slack", "send_message", "http", "webhook", "github", "browser"})
+    input_config = config.get("inputs", config)
+    input_prefix = "inputs" if isinstance(config, dict) and isinstance(config.get("inputs"), dict) else ""
+    untrusted_input_paths = _enabled_key_paths(
+        input_config,
+        {"web", "browser", "discord", "slack", "telegram", "email", "http", "rss", "webhook"},
+        prefix=input_prefix,
+    )
+    private_data_paths = _enabled_key_paths(
+        config,
+        {"filesystem", "files", "memory", "notes", "gmail", "email", "drive", "github", "secrets", "env"},
+    )
+    outbound_action_paths = _enabled_key_paths(
+        config,
+        {"email", "send_email", "send-email", "discord", "telegram", "slack", "send_message", "http", "webhook", "github", "browser"},
+    )
+    untrusted_inputs = bool(untrusted_input_paths)
+    private_data = bool(private_data_paths)
+    outbound_actions = bool(outbound_action_paths)
     shell_paths = _tool_paths(config, {"shell", "exec", "terminal", "subprocess", "python", "node"})
     code_execution = bool(shell_paths)
-    network_egress = _network_egress(config)
+    network_egress_paths = _network_egress_paths(config)
+    network_egress = bool(network_egress_paths)
     filesystem_broad_paths, filesystem_write_paths = _filesystem_access_paths(config)
-    secrets_access = _secrets_or_credentials_access(config)
-    destructive_actions = _destructive_actions(config)
-    unattended_autonomy = _unattended_autonomy(config)
-    privileged_infra = _privileged_infra(config)
+    secrets_access_paths = _secrets_or_credentials_access_paths(config)
+    secrets_access = bool(secrets_access_paths)
+    destructive_action_paths = _destructive_action_paths(config)
+    destructive_actions = bool(destructive_action_paths)
+    unattended_autonomy_paths = _unattended_autonomy_paths(config)
+    unattended_autonomy = bool(unattended_autonomy_paths)
+    privileged_infra_paths = _privileged_infra_paths(config)
+    privileged_infra = bool(privileged_infra_paths)
 
     if code_execution:
         capabilities.append("shell_enabled")
@@ -446,7 +497,15 @@ def lint_config(config):
 
     lethal_trifecta = untrusted_inputs and private_data and outbound_actions
     if lethal_trifecta:
-        _add(findings, "lethal_trifecta", "critical", "Lethal trifecta present", "Untrusted content, private data, and outbound action all appear enabled", "Break at least one leg with isolation, deny-by-default tools, or approval gates.")
+        _add(
+            findings,
+            "lethal_trifecta",
+            "critical",
+            "Lethal trifecta present",
+            "Untrusted content, private data, and outbound action all appear enabled",
+            "Break at least one leg with isolation, deny-by-default tools, or approval gates.",
+            untrusted_input_paths + private_data_paths + outbound_action_paths,
+        )
 
     if untrusted_inputs and code_execution and secrets_access and network_egress:
         _add(
@@ -456,6 +515,7 @@ def lint_config(config):
             "Prompt-injection-to-exfiltration bridge",
             "Untrusted inputs can reach code execution with secrets/credentials and network egress enabled",
             "Separate untrusted-input handling from code execution and credentials, or require per-action approval with egress allowlists.",
+            shell_paths + untrusted_input_paths + secrets_access_paths + network_egress_paths,
         )
 
     if unattended_autonomy and (code_execution or destructive_actions or outbound_actions) and not _approval_configured(config):
@@ -466,6 +526,7 @@ def lint_config(config):
             "Unattended dangerous tool use without approval gates",
             "Autonomous or scheduled execution can use shell, destructive, or outbound tools without an explicit approval policy",
             "Disable unattended execution or add explicit approval gates for shell, writes, deletes, deploys, and outbound sends.",
+            unattended_autonomy_paths + shell_paths + destructive_action_paths + outbound_action_paths,
         )
 
     if privileged_infra and secrets_access and network_egress:
@@ -476,13 +537,15 @@ def lint_config(config):
             "Privileged infrastructure control with credentials and network egress",
             "Infrastructure-control tools have credential access and can communicate over the network",
             "Run infra tools in isolated environments with least-privilege credentials, network egress restrictions, and mandatory approvals.",
+            privileged_infra_paths + secrets_access_paths + network_egress_paths,
         )
 
     if _approval_missing(config):
         _add(findings, "approval_gate_missing", "critical", "Approval gate disabled for dangerous action", "Approvals config disables one or more high-risk action gates", "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes.")
 
-    if _model_risk(config):
-        _add(findings, "weak_model_risk", "medium", "Model may be weaker against prompt injection", "Model name suggests small/local/uncensored configuration", "Use stronger models for adversarial routing or add stricter tool gates.")
+    model_risk_paths = _model_risk_paths(config)
+    if model_risk_paths:
+        _add(findings, "weak_model_risk", "medium", "Model may be weaker against prompt injection", "Model name suggests small/local/uncensored configuration", "Use stronger models for adversarial routing or add stricter tool gates.", model_risk_paths)
 
     summary = {severity: sum(1 for finding in findings if finding["severity"] == severity) for severity in SEVERITIES}
     score = summary["critical"] * 40 + summary["high"] * 15 + summary["medium"] * 5 + summary["low"]

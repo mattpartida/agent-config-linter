@@ -263,6 +263,39 @@ def _apply_baseline(report, path, suppressions, matched_suppression_ids=None):
     return _finalize_report(report)
 
 
+def _evidence_path_segments(evidence_path):
+    segments = []
+    for raw_part in str(evidence_path).split("."):
+        if not raw_part:
+            continue
+        match = re.fullmatch(r"([^\[]+)(?:\[(\d+)\])?", raw_part)
+        if match:
+            segments.append((match.group(1), int(match.group(2)) if match.group(2) is not None else None))
+        else:
+            segments.append((raw_part.split("[")[0], None))
+    return segments
+
+
+def _line_for_indexed_sequence(lines, key, index):
+    key_pattern = re.compile(rf"^\s*[\"']?{re.escape(key)}[\"']?\s*[:=]\s*\[?")
+    for key_line_index, line in enumerate(lines):
+        if not key_pattern.search(line):
+            continue
+        item_count = -1
+        for candidate_index in range(key_line_index + 1, len(lines)):
+            candidate = lines[candidate_index]
+            stripped = candidate.strip().rstrip(",")
+            if not stripped:
+                continue
+            if stripped.startswith("]"):
+                break
+            if stripped.startswith("-") or stripped.startswith('"') or stripped.startswith("'"):
+                item_count += 1
+                if item_count == index:
+                    return candidate_index + 1
+    return None
+
+
 def _source_line_for_evidence(path, evidence_paths):
     """Best-effort line lookup for SARIF locations from dotted evidence paths."""
     if not evidence_paths:
@@ -272,9 +305,16 @@ def _source_line_for_evidence(path, evidence_paths):
     except OSError:
         return 1
     for evidence_path in evidence_paths:
-        parts = [part.split("[")[0] for part in str(evidence_path).split(".") if part]
-        for key in reversed(parts):
-            key_pattern = re.compile(rf"^\s*(?:[\"']?{re.escape(key)}[\"']?\s*[:=]|\[{re.escape(key)}\])")
+        segments = _evidence_path_segments(evidence_path)
+        for key, index in reversed(segments):
+            if index is not None:
+                indexed_line = _line_for_indexed_sequence(lines, key, index)
+                if indexed_line:
+                    return indexed_line
+        for key, _index in reversed(segments):
+            key_pattern = re.compile(
+                rf"^\s*(?:[\"']?{re.escape(key)}[\"']?\s*[:=]|\[[^\]]*(?:^|\.){re.escape(key)}(?:\.|\]))"
+            )
             for line_number, line in enumerate(lines, start=1):
                 if key_pattern.search(line):
                     return line_number

@@ -1,0 +1,13 @@
+# Kubernetes and Docker controls can use credentials and call cloud/network APIs.
+tools:
+  kubernetes:
+    enabled: true
+    namespace: '*'
+  docker:
+    enabled: true
+    socket: /var/run/docker.sock
+  http:
+    enabled: true
+credentials:
+  cloud: true
+  kubeconfig: true

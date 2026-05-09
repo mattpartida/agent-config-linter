@@ -1,0 +1,7 @@
+# Dedicated strong-model fixture should not trigger weak-model risk.
+model: gpt-5.2
+tools:
+  browser:
+    enabled: false
+approvals:
+  browser: true

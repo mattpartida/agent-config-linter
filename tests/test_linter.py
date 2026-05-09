@@ -200,6 +200,87 @@ class LinterTests(unittest.TestCase):
         self.assertEqual(location["region"]["startLine"], 2)
         self.assertEqual(shell_result["properties"]["evidence_paths"], ["tools.shell"])
 
+    def test_composite_findings_include_evidence_paths(self):
+        config = {
+            "inputs": {"browser": {"enabled": True}},
+            "tools": {
+                "terminal": {"enabled": True},
+                "filesystem": {"enabled": True, "paths": ["/var/agent"]},
+                "http": {"enabled": True},
+                "kubernetes": {"enabled": True},
+            },
+            "secrets": {"env": True},
+            "credentials": {"kubeconfig": True},
+            "autonomy": {"enabled": True, "mode": "unattended"},
+        }
+
+        report = lint_config(config)
+        findings = {finding["id"]: finding for finding in report["findings"]}
+
+        for finding_id in {
+            "lethal_trifecta",
+            "prompt_injection_exfiltration_bridge",
+            "unattended_dangerous_tools",
+            "privileged_infra_control",
+        }:
+            with self.subTest(finding_id=finding_id):
+                self.assertTrue(findings[finding_id]["evidence_paths"])
+
+    def test_sarif_points_composite_yaml_to_nested_tool_line(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.yaml"
+            config_path.write_text(
+                "tools:\n"
+                "  terminal:\n"
+                "    enabled: true\n"
+                "  http:\n"
+                "    enabled: true\n"
+                "inputs:\n"
+                "  browser:\n"
+                "    enabled: true\n"
+                "secrets:\n"
+                "  env: true\n"
+            )
+
+            exit_code, output = run([str(config_path), "--format", "sarif"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        bridge_result = next(result for result in parsed["runs"][0]["results"] if result["ruleId"] == "ACL-005")
+        self.assertEqual(bridge_result["locations"][0]["physicalLocation"]["region"]["startLine"], 2)
+        self.assertTrue(bridge_result["properties"]["evidence_paths"])
+
+    def test_sarif_points_toml_table_to_nested_tool_line(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.toml"
+            config_path.write_text('[tools.shell]\nenabled = true\n')
+
+            exit_code, output = run([str(config_path), "--format", "sarif"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        shell_result = next(result for result in parsed["runs"][0]["results"] if result["ruleId"] == "ACL-001")
+        self.assertEqual(shell_result["locations"][0]["physicalLocation"]["region"]["startLine"], 1)
+
+    def test_sarif_points_json_toolset_array_to_item_line(self):
+        from agent_config_linter.cli import run
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "agent.json"
+            config_path.write_text('{\n  "enabled_toolsets": [\n    "terminal"\n  ]\n}\n')
+
+            exit_code, output = run([str(config_path), "--format", "sarif"])
+
+        self.assertEqual(exit_code, 0)
+        parsed = json.loads(output)
+        shell_result = next(result for result in parsed["runs"][0]["results"] if result["ruleId"] == "ACL-001")
+        self.assertEqual(shell_result["locations"][0]["physicalLocation"]["region"]["startLine"], 3)
+        self.assertEqual(shell_result["properties"]["evidence_paths"], ["enabled_toolsets[0]"])
+
     def test_cli_lints_toml_config(self):
         from agent_config_linter.cli import run
 

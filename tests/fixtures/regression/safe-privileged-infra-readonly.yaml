@@ -1,0 +1,7 @@
+# Kubernetes is read-only and has no credentials or network egress configured.
+tools:
+  kubernetes:
+    enabled: true
+    namespace: dev
+approvals:
+  kubernetes: true

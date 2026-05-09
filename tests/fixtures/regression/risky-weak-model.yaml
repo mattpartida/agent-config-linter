@@ -1,0 +1,7 @@
+# Dedicated weak-model fixture.
+model: small-local-7b
+tools:
+  browser:
+    enabled: false
+approvals:
+  browser: true

@@ -14,6 +14,8 @@
 
 ### 1. Complete regression coverage for every existing rule
 
+**Status:** Shipped. `ACL-007` and `ACL-009` now have dedicated risky and safe fixtures, and `docs/rule-coverage.md` lists risky plus negative coverage for every existing `ACL-*` rule.
+
 **Why:** `docs/rule-coverage.md` still notes fixture gaps for `ACL-007` and dedicated weak-model fixtures. Closing these gaps makes future rule edits safer.
 
 **Deliverables:**
@@ -29,6 +31,8 @@
 - `docs/rule-coverage.md` lists at least one risky fixture and one safe/negative fixture for each `ACL-*` rule.
 
 ### 2. Improve evidence paths and source locations
+
+**Status:** Shipped. Composite findings now emit evidence paths, and SARIF source-line mapping covers nested YAML/TOML plus indexed array/toolset evidence paths.
 
 **Why:** SARIF and PR-comment consumers need precise line numbers and evidence paths, especially for nested YAML/TOML configs and normalized schema adapters.
 

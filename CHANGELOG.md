@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Post-`0.2.0` roadmap covering precision/rule-pack foundations, repository-scale discovery, developer UX, CI governance, and future `0.3.0` readiness.
+
 ## [0.2.0] - 2026-05-10
 
 ### Added

@@ -326,14 +326,14 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The previous MVP roadmap is complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, and the first security regression corpus have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP and `0.2.0` readiness roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, and manifest-only rule-pack design have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
 Next focus areas:
 
-1. Rule-engine maturity: built-in rule registry migration, confidence annotations, and original-source evidence for adapter-normalized findings are shipped.
-2. Real-world coverage expansion: editor-agent/framework-deployment adapters and supply-chain/network-boundary rules are shipped.
-3. Adoption and operations: baseline aging, policy bundles, and GitHub Actions integration ergonomics are shipped.
-4. Distribution and trust: stable `0.2.0` metadata, Python/OS compatibility testing, and manifest-only rule-pack design are shipped.
+1. Precision and rule-pack foundations: validate non-executable manifests, migrate simple built-in predicates toward declarative match specs, and add precision-focused negative fixtures.
+2. Repository-scale discovery and developer UX: recursively discover supported config shapes, add finding explanations, and produce review-only remediation suggestions.
+3. CI adoption, metrics, and governance: add trendable artifacts, policy drift checks, and hardened GitHub Actions supply-chain guidance.
+4. Release quality and ecosystem readiness: prepare a future `0.3.0`, document extension governance, and build an examples gallery for common agent stacks.
 
 ## Development
 

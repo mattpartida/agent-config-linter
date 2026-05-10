@@ -1,6 +1,6 @@
 # Roadmap
 
-`agent-config-linter` has completed its first MVP roadmap: stable `ACL-*` rule IDs, JSON/Markdown/GitHub-Markdown/SARIF output, policy files, baselines, schema adapters, release automation, report stability tests, and a fixture-backed regression corpus. The next roadmap focuses on becoming a more precise security gate for real agent repositories and an easier tool to operate across teams.
+`agent-config-linter` has completed its first MVP and `0.2.0` readiness roadmaps: stable `ACL-*` rule IDs, JSON/Markdown/GitHub-Markdown/SARIF output, policy files, baselines, schema adapters, release automation, report stability tests, a fixture-backed regression corpus, compatibility testing, and manifest-only rule-pack design. The next roadmap focuses on turning the linter from a strong standalone CLI into a safer ecosystem component: more precise declarative rules, better repository discovery, actionable autofix guidance, and trustable adoption workflows.
 
 ## Guiding principles
 
@@ -247,6 +247,217 @@ Phase 4 status: Shipped. The `0.2.0` compatibility point is documented, CI now e
 - The design explains how rule IDs, default severities, docs, fixtures, and report compatibility would work for rule packs.
 - The implementation still does not load arbitrary external code.
 - Future implementation tasks are small enough to execute with TDD.
+
+## Phase 5: precision and rule-pack foundations
+
+Phase 5 status: Planned. This phase should make built-in and future third-party rules more declarative, easier to review, and safer to extend without executing external code.
+
+### 13. Build a manifest parser and validator for non-executable rule packs
+
+**Why:** `docs/rule-packs.md` defines the trust boundary, but users need validation tooling before any rule-pack ecosystem exists.
+
+**Deliverables:**
+
+- Add a `RulePackManifest` parser for local YAML/JSON manifests that validates metadata only.
+- Reject executable-looking fields such as command, entry point, module, script, hook, package installer, or dynamic import references.
+- Add CLI support to validate or inspect a manifest without running rules.
+- Keep dynamic rule execution explicitly unsupported.
+
+**Acceptance:**
+
+- Risky manifest fixtures with executable-looking fields fail validation with clear errors.
+- Safe metadata-only fixtures parse and round-trip deterministic metadata.
+- Reports and lint behavior remain unchanged when no rule-pack validation command is used.
+
+### 14. Move built-in rule predicates toward declarative match specs
+
+**Why:** Declarative matching is easier to audit, document, and eventually share with rule packs than ad hoc Python branches spread across helpers.
+
+**Deliverables:**
+
+- Identify a small subset of existing simple rules suitable for declarative match specs.
+- Define a minimal internal spec for path fragments, enabled-state checks, value allowlists, and evidence path collection.
+- Migrate one or two low-risk rules while preserving exact finding IDs, severity, confidence, and evidence output.
+- Document which rules remain custom Python and why.
+
+**Acceptance:**
+
+- Golden reports do not drift except for intentional, reviewed evidence-path ordering changes.
+- Migrated rules retain risky/safe regression fixture behavior.
+- The internal spec cannot call code, import modules, or evaluate expressions.
+
+### 15. Add precision-focused negative fixture packs
+
+**Why:** The linter has broad positive coverage, but adoption depends on suppressing false positives for common safe patterns.
+
+**Deliverables:**
+
+- Add negative fixtures for read-only filesystem access, domain-scoped egress, review-only autonomy, pinned remote tools, and secret names that are not exposed to dangerous tools.
+- Add a `docs/precision-boundaries.md` guide explaining why each negative fixture is safe.
+- Track false-positive boundaries in tests so future rule changes must update fixtures deliberately.
+
+**Acceptance:**
+
+- Every high/critical rule has at least one explicit negative fixture for its most likely false-positive boundary.
+- `docs/rule-coverage.md` links to the new precision-boundary fixture group.
+- Full regression tests fail if a boundary fixture starts producing the guarded finding.
+
+## Phase 6: repository-scale discovery and developer UX
+
+Phase 6 status: Planned. This phase should make the linter useful on real repositories where configs are scattered across hidden directories, CI workflows, examples, and framework deployment snippets.
+
+### 16. Add recursive repo scanning with config-shape discovery
+
+**Why:** Users should be able to point the tool at a repository root and get useful results without hand-selecting every config file.
+
+**Deliverables:**
+
+- Add a repo scan mode that discovers supported config files under common paths such as `.github/workflows/`, `.cursor/`, `.windsurf/`, MCP settings, examples, and deployment directories.
+- Skip vendored/cache/build directories by default.
+- Report discovered files, ignored files, parser failures, and adapter selection.
+- Keep single-file lint behavior unchanged.
+
+**Acceptance:**
+
+- Fixtures cover nested repo trees with supported, ignored, malformed, and safe files.
+- JSON output distinguishes active findings from scan diagnostics.
+- CLI docs include copy-pasteable repo scan examples.
+
+### 17. Add explain output for one finding at a time
+
+**Why:** CI findings should be understandable by developers who do not know the rule catalog.
+
+**Deliverables:**
+
+- Add an `explain`-style output mode or flag that expands one finding into rule intent, evidence paths, source evidence paths, confidence, remediation, and suppression guidance.
+- Link each finding to `docs/rules.md` or a generated per-rule anchor.
+- Include examples for terminal and PR-comment usage.
+
+**Acceptance:**
+
+- Explain output is deterministic and covered by golden tests.
+- The output never hides the machine-readable rule ID needed for baselines and policy files.
+- README documents the shortest developer workflow from CI finding to remediation.
+
+### 18. Produce remediation patches only as suggestions
+
+**Why:** Developers need actionable fixes, but automated security edits should be reviewable and opt-in.
+
+**Deliverables:**
+
+- Add structured remediation suggestions for selected rules, such as adding approval gates, narrowing filesystem roots, pinning tool sources, or replacing unrestricted egress with a placeholder allowlist.
+- Emit suggestions in JSON and Markdown without modifying files by default.
+- Consider a separate `--write-suggestions` artifact output, not in-place edits.
+
+**Acceptance:**
+
+- Suggestions are clearly labeled as review-required and never applied automatically by default.
+- Tests cover suggested patch text for at least three common rule families.
+- Suggestions preserve stable finding IDs and baseline matching behavior.
+
+## Phase 7: CI adoption, metrics, and governance
+
+Phase 7 status: Planned. This phase should help teams operate the linter over time instead of treating it as a one-off scanner.
+
+### 19. Add trendable summary artifacts
+
+**Why:** Security teams need to know whether findings are getting better or worse across runs.
+
+**Deliverables:**
+
+- Add optional summary output designed for time-series ingestion: counts by rule, severity, confidence, adapter, path prefix, baseline state, and owner.
+- Keep the artifact stable and compact.
+- Document how to archive it in GitHub Actions.
+
+**Acceptance:**
+
+- Trend summaries are deterministic and covered by tests.
+- Existing JSON reports remain backward compatible.
+- Docs include a minimal GitHub Actions upload-artifact example.
+
+### 20. Add policy drift and bundle version checks
+
+**Why:** Organization policy bundles can become stale or diverge from recommended defaults.
+
+**Deliverables:**
+
+- Add metadata versions to example policy bundles.
+- Report when a policy file omits known rules or references retired/unknown rules.
+- Add docs for upgrading policy bundles between releases.
+
+**Acceptance:**
+
+- Unknown, missing, and stale policy references are machine-readable.
+- Strict CI can fail on policy drift independently from finding severity.
+- Example policies remain valid under the new drift checks.
+
+### 21. Harden GitHub Actions supply-chain posture
+
+**Why:** The project ships workflow examples and its own CI; those should model secure defaults.
+
+**Deliverables:**
+
+- Decide whether project workflows and examples should pin third-party actions by major version, full SHA, or documented exception.
+- Add tests that catch deprecated or unexpectedly broad permissions.
+- Document upgrade workflow for pinned actions.
+
+**Acceptance:**
+
+- Workflow examples have explicit permission rationale.
+- Tests prevent accidental `contents: write` or broad token scopes where not required.
+- The release workflow remains compatible with PyPI trusted publishing.
+
+## Phase 8: release quality and ecosystem readiness
+
+Phase 8 status: Planned. This phase should prepare a future `0.3.0` release with fewer footguns and clearer ecosystem boundaries.
+
+### 22. Prepare a stable `0.3.0` compatibility point
+
+**Why:** The next release should bundle repo scanning, precision fixtures, and manifest validation behind a clear compatibility decision.
+
+**Deliverables:**
+
+- Update version metadata only after the planned `0.3.0` feature set is implemented and verified.
+- Decide whether repo-scan diagnostics or trend artifacts require a `schema_version` bump.
+- Update `CHANGELOG.md`, `docs/report-stability.md`, and `docs/release-checklist.md` before tagging.
+
+**Acceptance:**
+
+- Install smoke passes from built wheel and sdist.
+- Compatibility decisions are documented before tagging.
+- The changelog separates breaking changes, additive report fields, and docs-only changes.
+
+### 23. Add documented extension governance
+
+**Why:** If third-party rule packs become possible later, the project needs a governance model before accepting ecosystem contributions.
+
+**Deliverables:**
+
+- Document naming rules for non-`ACL-*` rule IDs.
+- Define review expectations for rule-pack examples, fixtures, severity, confidence, and remediation text.
+- Add an explicit process for promoting an external rule idea into the built-in catalog.
+
+**Acceptance:**
+
+- `docs/rule-packs.md` distinguishes manifest validation from future rule execution.
+- Governance docs define collision handling and ownership metadata.
+- Future contributors can tell whether a rule belongs in core, a policy bundle, or a third-party pack.
+
+### 24. Build an examples gallery for common agent stacks
+
+**Why:** Adoption improves when users can compare their setup against realistic safe and risky examples.
+
+**Deliverables:**
+
+- Add a curated examples index covering local coding agents, CI agents, MCP desktop configs, editor agents, framework deployments, and organization policy bundles.
+- Label examples as safe, risky, or intentionally vulnerable.
+- Add smoke tests that lint every gallery example.
+
+**Acceptance:**
+
+- Every gallery example has a documented expected result.
+- Safe examples remain clean for guarded high/critical rules.
+- Risky examples trigger stable rule IDs without relying on brittle line numbers.
 
 ## Ongoing quality bar
 

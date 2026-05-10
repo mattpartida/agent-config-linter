@@ -111,6 +111,28 @@ class ConfigShapeFixtureTests(unittest.TestCase):
         self.assertEqual(report["schema"]["adapter"], "github_actions")
         self.assertEqual(report["findings"], [])
 
+    def test_phase2_editor_and_framework_shape_fixtures_select_expected_adapters(self):
+        cases = {
+            "cursor-risky-agent-settings.json": ("cursor", {"shell_enabled", "unpinned_remote_tool_source"}),
+            "cursor-safe-agent-settings.json": ("cursor", set()),
+            "windsurf-risky-agent-settings.yaml": ("windsurf", {"runtime_package_install", "unrestricted_network_egress"}),
+            "windsurf-safe-agent-settings.yaml": ("windsurf", set()),
+            "langgraph-risky-deployment.yaml": ("langgraph", {"runtime_package_install", "secret_env_to_dangerous_tool"}),
+            "langgraph-safe-deployment.yaml": ("langgraph", set()),
+            "crewai-risky-deployment.yaml": ("crewai", {"unpinned_remote_tool_source", "secret_env_to_dangerous_tool"}),
+            "autogen-safe-deployment.yaml": ("autogen", set()),
+        }
+
+        for fixture_name, (adapter, expected_findings) in cases.items():
+            with self.subTest(fixture=fixture_name):
+                report = lint_config(load_config(FIXTURE_DIR / fixture_name))
+                finding_ids = {finding["id"] for finding in report["findings"]}
+
+                self.assertEqual(report["schema"]["adapter"], adapter)
+                self.assertTrue(expected_findings <= finding_ids)
+                if not expected_findings:
+                    self.assertEqual(report["findings"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

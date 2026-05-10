@@ -1,0 +1,18 @@
+{
+  "cursor": {
+    "agent": {
+      "tools": {
+        "terminal": false,
+        "filesystem": {"enabled": true, "mode": "ro", "paths": ["./workspace"]}
+      },
+      "approvals": {"shell": true, "send_email": true},
+      "network": {"egress": ["api.github.com"]},
+      "mcpServers": {
+        "docs": {
+          "command": "local-docs-mcp@1.2.3",
+          "args": ["--read-only"]
+        }
+      }
+    }
+  }
+}

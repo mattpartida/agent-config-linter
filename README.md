@@ -2,7 +2,7 @@
 
 Dependency-light risk linter for autonomous-agent configuration files.
 
-The first MVP scans JSON, YAML, and TOML configs for unsafe capability combinations in agent runtimes: untrusted inputs, private data access, outbound actions, persistence, shell/filesystem/browser access, weak approval gates, and weaker model choices.
+The first MVP scans JSON, YAML, and TOML configs for unsafe capability combinations in agent runtimes: untrusted inputs, private data access, outbound actions, persistence, shell/filesystem/browser access, weak approval gates, weaker model choices, unpinned remote tool sources, runtime package installs, unrestricted network egress, and secrets exposed to dangerous tools.
 
 ## Why
 
@@ -222,6 +222,10 @@ The `examples/config-shapes/` directory contains representative Hermes, OpenClaw
 - `openclaw-browser-agent.json`: OpenClaw-style browser/web agent with private-network browser access.
 - `claude-desktop-risky-mcp.json` / `claude-desktop-safe-mcp.json`: MCP server maps that exercise shell/secrets/outbound normalization and the safe read-only boundary.
 - `github-actions-agent-risky.yml` / `github-actions-agent-safe.yml`: workflow snippets that exercise write permissions, secrets, unattended shell tools, and a read-only workflow boundary.
+- `cursor-risky-agent-settings.json` / `cursor-safe-agent-settings.json`: Cursor-style editor agent settings for shell/filesystem/MCP/secrets/network normalization and safe scoped settings.
+- `windsurf-risky-agent-settings.yaml` / `windsurf-safe-agent-settings.yaml`: Windsurf-style editor agent settings for autonomous shell/package-install/network risk and review-only boundaries.
+- `langgraph-risky-deployment.yaml` / `langgraph-safe-deployment.yaml`: LangGraph/LangChain deployment snippets for scheduled tools, package installs, secrets, egress, and safe manual review mode.
+- `crewai-risky-deployment.yaml` / `autogen-safe-deployment.yaml`: CrewAI/AutoGen-style snippets covering autonomous crew tools, remote MCP sources, secrets, and a safe human-in-the-loop group chat boundary.
 
 Use these fixtures as starting points when adding schema-specific rules or testing integrations.
 
@@ -236,6 +240,10 @@ Use these fixtures as starting points when adding schema-specific rules or testi
 - Missing approval gates for dangerous actions
 - Small/local/uncensored model risk hints
 - Lethal-trifecta detection
+- Unpinned remote MCP/tool sources
+- Runtime package installation
+- Unrestricted network egress
+- Secret-bearing environment variables exposed to dangerous tools
 
 ## Unsafe capability-combination checks
 
@@ -263,6 +271,10 @@ Findings include stable rule IDs for baselines and CI integrations. See [docs/ru
 | ACL-008 | `approval_gate_missing` | critical |
 | ACL-009 | `weak_model_risk` | medium |
 | ACL-010 | `filesystem_write_access` | high |
+| ACL-011 | `unpinned_remote_tool_source` | high |
+| ACL-012 | `runtime_package_install` | high |
+| ACL-013 | `unrestricted_network_egress` | high |
+| ACL-014 | `secret_env_to_dangerous_tool` | critical |
 
 ## Schema-aware adapters
 
@@ -276,6 +288,12 @@ Supported adapters:
 - `openai`: OpenAI-compatible `tools` arrays, including `code_interpreter`, `computer_use`, and function tools whose names imply outbound sends such as email, Slack, Discord, Telegram, HTTP, or webhooks.
 - `mcp`: Claude Desktop / MCP-style `mcpServers` maps, including server command/arg names that imply shell, filesystem, or outbound tools, plus server `env` as credential access.
 - `github_actions`: GitHub Actions workflow snippets with `jobs`, `steps`, write-capable `permissions`, `${{ secrets.* }}` references, and unattended agent runs.
+- `cursor`: Cursor-style workspace settings under `cursor.agent`, including tested tool toggles, filesystem access, approvals, MCP servers, environment/secrets access, and network egress.
+- `windsurf`: Windsurf-style `windsurf.agent` settings for shell/HTTP tools, approvals, autonomy/schedules, package installation, environment exposure, and network egress.
+- `langgraph` / `langchain`: deployment-snippet configs with explicit tool lists, webhook/scheduled triggers, runtime package installation, network egress, secrets, and approval settings.
+- `crewai` / `autogen`: crew/group-chat deployment snippets with explicit agent tool lists, schedules/autonomous mode, MCP server declarations, environment exposure, and network egress.
+
+The framework adapters intentionally enforce a config-only boundary: they parse explicit YAML/JSON snippets and do not perform static analysis of arbitrary Python application code.
 
 Unsupported fields are ignored until they have fixture-backed tests. Add representative configs under `examples/config-shapes/` or `tests/fixtures/` before expanding adapter behavior.
 
@@ -286,7 +304,7 @@ The previous MVP roadmap is complete: policy files, baselines, staged CI gates, 
 Next focus areas:
 
 1. Rule-engine maturity: built-in rule registry migration, confidence annotations, and original-source evidence for adapter-normalized findings are shipped.
-2. Real-world coverage expansion: add editor-agent and framework-deployment adapters plus supply-chain/network-boundary rules.
+2. Real-world coverage expansion: editor-agent/framework-deployment adapters and supply-chain/network-boundary rules are shipped.
 3. Adoption and operations: improve baseline aging, policy bundles, and GitHub Actions integration ergonomics.
 4. Distribution and trust: prepare a stable `0.2.0`, expand compatibility testing, and design safe third-party rule-pack loading without executing external code yet.
 

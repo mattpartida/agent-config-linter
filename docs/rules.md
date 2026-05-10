@@ -14,6 +14,10 @@ Stable rule IDs are included in JSON findings and SARIF output so CI systems, ba
 | ACL-008 | `approval_gate_missing` | critical | Approval policy disables gates for high-risk actions. |
 | ACL-009 | `weak_model_risk` | medium | Model name suggests small, local, uncensored, or weak-guardrail routing. |
 | ACL-010 | `filesystem_write_access` | high | Filesystem configuration permits write-capable access. |
+| ACL-011 | `unpinned_remote_tool_source` | high | Remote MCP/tool package, URL, or command is not pinned to an exact version, commit, or digest. |
+| ACL-012 | `runtime_package_install` | high | Agent runtime can install packages or run package-manager install commands. |
+| ACL-013 | `unrestricted_network_egress` | high | Network egress allows all destinations instead of domain-scoped allowlists. |
+| ACL-014 | `secret_env_to_dangerous_tool` | critical | Secret-bearing environment variables are exposed to shell, MCP, package-install, or outbound tools. |
 
 ## Severity and confidence model
 
@@ -27,7 +31,7 @@ Severity describes expected impact. Confidence describes detector precision and 
 Confidence values are additive finding metadata:
 
 - `high`: deterministic config evidence points directly at the capability or dangerous combination.
-- `medium`: heuristic risk hint, such as weak/local model naming, where context may change severity decisions.
+- `medium`: heuristic risk hint, such as weak/local model naming or package pinning inference, where context may change severity decisions.
 - `low`: reserved for future weak-signal checks that should not normally block CI on their own.
 
 Gate on severity when impact is the main concern, on confidence when false-positive tolerance matters, and on both for strict CI. Policy files can use `min_confidence` to filter lower-confidence findings while preserving audit fields.
@@ -41,3 +45,13 @@ Gate on severity when impact is the main concern, on confidence when false-posit
 ## Filesystem semantics
 
 `ACL-002 filesystem_broad_access` is reserved for broad roots such as `/`, `~`, `$HOME`, `*`, or unrestricted host mappings. Project-scoped writable paths such as `./workspace` or `~/project` no longer raise `ACL-002` solely because they are write-capable; they raise `ACL-010 filesystem_write_access` instead. This may reduce high-severity `ACL-002` counts in existing baselines while preserving the write-access finding for scoped writable mounts.
+
+## Supply-chain and network-boundary semantics
+
+`ACL-011` flags explicit remote tool sources that appear unpinned, such as `latest`, floating URLs, or `npx`/`uvx` package names without an exact version, commit, or digest. Local read-only tools or exact versions such as `tool@1.2.3` are treated as pinned.
+
+`ACL-012` flags runtime package installation, including explicit `package_install` toggles and install commands such as `pip install`, `npm install`, or `uv add`. Prebuilt dependencies or disabled runtime installers avoid this rule.
+
+`ACL-013` flags unrestricted egress values such as `*`, `any`, `all`, `unrestricted`, `0.0.0.0/0`, or `::/0`. Domain-scoped allowlists such as `api.github.com` are treated as constrained.
+
+`ACL-014` flags the combination of secret/environment access with dangerous tools: shell/code execution, MCP/outbound tools, runtime package installation, or unrestricted network egress. The rule is meant to catch configurations where ambient credentials could be consumed by high-impact tools.

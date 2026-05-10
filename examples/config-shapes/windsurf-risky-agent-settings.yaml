@@ -1,0 +1,15 @@
+windsurf:
+  agent:
+    tools:
+      shell: true
+      http: true
+    mode: autonomous
+    schedule: "*/15 * * * *"
+    approvals: none
+    network:
+      egress: any
+    package_install:
+      enabled: true
+      managers: [pip, npm]
+    env:
+      expose: [AWS_SECRET_ACCESS_KEY]

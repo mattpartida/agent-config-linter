@@ -227,10 +227,207 @@ def _normalize_github_actions_config(config):
     return normalized, provenance
 
 
+def _as_list(value):
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def _pin_looks_stable(value):
+    text = str(value).strip().lower()
+    if "@sha256:" in text or "?sha=" in text or "#sha" in text:
+        return True
+    if "://" in text and any(marker in text for marker in ("/commit/", "@sha", "?ref=")):
+        return True
+    parts = text.rsplit("@", 1)
+    return len(parts) == 2 and any(char.isdigit() for char in parts[1]) and parts[1] not in {"latest", "main", "master"}
+
+
+def _source_path_join(prefix, *parts):
+    path = prefix
+    for part in parts:
+        if isinstance(part, int):
+            path = f"{path}[{part}]"
+        else:
+            path = f"{path}.{part}" if path else str(part)
+    return path
+
+
+def _merge_agent_tools(agent, source_prefix, normalized, provenance):
+    tools = dict(normalized.get("tools", {})) if isinstance(normalized.get("tools"), dict) else {}
+    secrets = dict(normalized.get("secrets", {})) if isinstance(normalized.get("secrets"), dict) else {}
+    network = dict(normalized.get("network", {})) if isinstance(normalized.get("network"), dict) else {}
+    autonomy = dict(normalized.get("autonomy", {})) if isinstance(normalized.get("autonomy"), dict) else {}
+
+    tool_values = agent.get("tools", {}) if isinstance(agent, dict) else {}
+    iterable_tools = []
+    if isinstance(tool_values, dict):
+        iterable_tools.extend((name, value, _source_path_join(source_prefix, "tools", name)) for name, value in tool_values.items())
+    elif isinstance(tool_values, list):
+        iterable_tools.extend((str(value), True, _source_path_join(source_prefix, "tools", index)) for index, value in enumerate(tool_values))
+
+    for name, value, source_path in iterable_tools:
+        normalized_name = str(name).lower().replace("-", "_")
+        if normalized_name in {"terminal", "shell", "bash", "exec", "python", "code_interpreter"} and is_enabled(value):
+            tools.setdefault("shell", {"enabled": True})
+            provenance.setdefault("tools.shell", []).append(source_path)
+        if normalized_name in {"http", "requests", "browser", "web", "webhook", "send_email", "email", "slack", "discord", "telegram"} and is_enabled(value):
+            tool_key = "browser" if normalized_name == "browser" else "http"
+            tools.setdefault(tool_key, {"enabled": True})
+            provenance.setdefault(f"tools.{tool_key}", []).append(source_path)
+        if normalized_name in {"filesystem", "file_system", "files", "fs"} and is_enabled(value):
+            filesystem_value = value if isinstance(value, dict) else {"enabled": True}
+            tools["filesystem"] = filesystem_value
+            provenance.setdefault("tools.filesystem", []).append(source_path)
+        if any(fragment in normalized_name for fragment in ("git_write", "write", "delete", "deploy")) and is_enabled(value):
+            tools.setdefault(normalized_name, {"enabled": True, "write": True})
+            provenance.setdefault(f"tools.{normalized_name}", []).append(source_path)
+
+    approvals = agent.get("approvals") if isinstance(agent, dict) else None
+    if approvals is not None and "approvals" not in normalized:
+        normalized["approvals"] = False if str(approvals).lower() in {"none", "never", "false"} else approvals
+        provenance["approvals"] = [_source_path_join(source_prefix, "approvals")]
+
+    agent_network = agent.get("network") if isinstance(agent, dict) else None
+    if isinstance(agent_network, dict) and "egress" in agent_network:
+        network["egress"] = agent_network["egress"]
+        provenance["network.egress"] = [_source_path_join(source_prefix, "network", "egress")]
+
+    package_install = agent.get("package_install") or (agent.get("runtime", {}) if isinstance(agent.get("runtime"), dict) else {}).get("package_install")
+    if package_install is not None:
+        normalized["package_install"] = package_install
+        provenance["package_install"] = [
+            _source_path_join(source_prefix, "package_install")
+            if "package_install" in agent
+            else _source_path_join(source_prefix, "runtime", "package_install")
+        ]
+    runtime = agent.get("runtime") if isinstance(agent.get("runtime"), dict) else {}
+    if isinstance(runtime, dict) and "install_commands" in runtime:
+        normalized["install_commands"] = runtime["install_commands"]
+        provenance.update(_list_provenance("install_commands", _source_path_join(source_prefix, "runtime", "install_commands"), runtime["install_commands"]))
+
+    for secret_key in ("secrets", "env"):
+        secret_value = agent.get(secret_key) if isinstance(agent, dict) else None
+        if secret_value:
+            secrets.setdefault("env", True)
+            provenance.setdefault("secrets.env", []).append(_source_path_join(source_prefix, secret_key))
+
+    for mode_key in ("autonomy", "mode", "schedule"):
+        if mode_key in agent:
+            value = agent[mode_key]
+            if mode_key == "schedule" or _text_contains_any(value, {"unattended", "autonomous", "auto"}):
+                autonomy.setdefault("enabled", True)
+                autonomy.setdefault("mode", "unattended")
+                provenance.setdefault("autonomy", []).append(_source_path_join(source_prefix, mode_key))
+    triggers = agent.get("triggers") if isinstance(agent.get("triggers"), dict) else {}
+    if any(name in triggers for name in ("webhook", "http", "email", "slack", "discord")):
+        inputs = dict(normalized.get("inputs", {})) if isinstance(normalized.get("inputs"), dict) else {}
+        inputs.setdefault("webhook", True)
+        normalized["inputs"] = inputs
+        provenance.setdefault("inputs.webhook", []).append(_source_path_join(source_prefix, "triggers"))
+
+    if tools:
+        normalized["tools"] = tools
+    if secrets:
+        normalized["secrets"] = secrets
+    if network:
+        normalized["network"] = network
+    if autonomy:
+        normalized["autonomy"] = autonomy
+
+
+def _merge_mcp_servers(servers, source_prefix, normalized, provenance):
+    if not isinstance(servers, dict):
+        return
+    tools = dict(normalized.get("tools", {})) if isinstance(normalized.get("tools"), dict) else {}
+    remote_sources = list(normalized.get("remote_tool_sources", [])) if isinstance(normalized.get("remote_tool_sources"), list) else []
+    secrets = dict(normalized.get("secrets", {})) if isinstance(normalized.get("secrets"), dict) else {}
+    for server_name, server in servers.items():
+        if not isinstance(server, dict):
+            continue
+        server_prefix = _source_path_join(source_prefix, server_name)
+        command = server.get("command") or server.get("url") or ""
+        args = server.get("args", [])
+        server_text = [server_name, command, *_as_list(args)]
+        remote_sources.append({"source": command, "pinned": _pin_looks_stable(command)})
+        provenance.setdefault(f"remote_tool_sources[{len(remote_sources) - 1}]", []).append(
+            _source_path_join(server_prefix, "command") if "command" in server else _source_path_join(server_prefix, "url")
+        )
+        if _text_contains_any(server_text, {"shell", "terminal", "exec", "deploy"}):
+            tools.setdefault("shell", {"enabled": True})
+            provenance.setdefault("tools.shell", []).append(_source_path_join(server_prefix, "command"))
+        if _text_contains_any(server_text, {"http", "browser", "webhook", "send"}):
+            tools.setdefault("http", {"enabled": True})
+            provenance.setdefault("tools.http", []).append(_source_path_join(server_prefix, "command"))
+        if server.get("env"):
+            secrets.setdefault("env", True)
+            provenance.setdefault("secrets.env", []).append(_source_path_join(server_prefix, "env"))
+    if remote_sources:
+        normalized["remote_tool_sources"] = remote_sources
+    if tools:
+        normalized["tools"] = tools
+    if secrets:
+        normalized["secrets"] = secrets
+
+
+def _normalize_editor_agent_config(config, adapter_key):
+    normalized = deepcopy(config)
+    provenance = {}
+    root = normalized.get(adapter_key)
+    if not isinstance(root, dict):
+        return normalized, provenance
+    agent = root.get("agent", root)
+    if isinstance(agent, dict):
+        _merge_agent_tools(agent, f"{adapter_key}.agent" if "agent" in root else adapter_key, normalized, provenance)
+        _merge_mcp_servers(agent.get("mcpServers") or agent.get("mcp_servers"), f"{adapter_key}.agent.mcpServers", normalized, provenance)
+    return normalized, provenance
+
+
+def _normalize_langgraph_config(config):
+    normalized = deepcopy(config)
+    provenance = {}
+    root = normalized.get("langgraph") or normalized.get("langchain")
+    root_key = "langgraph" if isinstance(normalized.get("langgraph"), dict) else "langchain"
+    if isinstance(root, dict):
+        agent = root.get("deployment", root)
+        _merge_agent_tools(agent, f"{root_key}.deployment" if "deployment" in root else root_key, normalized, provenance)
+    return normalized, provenance
+
+
+def _normalize_crewai_autogen_config(config, adapter_key):
+    normalized = deepcopy(config)
+    provenance = {}
+    root = normalized.get(adapter_key)
+    if not isinstance(root, dict):
+        return normalized, provenance
+    agent = root.get("crew") or root.get("group_chat") or root
+    source_prefix = f"{adapter_key}.crew" if "crew" in root else f"{adapter_key}.group_chat" if "group_chat" in root else adapter_key
+    _merge_agent_tools(agent, source_prefix, normalized, provenance)
+    agents = agent.get("agents", []) if isinstance(agent, dict) else []
+    if isinstance(agents, list):
+        for index, child in enumerate(agents):
+            if isinstance(child, dict):
+                child_prefix = _source_path_join(source_prefix, "agents", index)
+                _merge_agent_tools(child, child_prefix, normalized, provenance)
+                _merge_mcp_servers(child.get("mcp_servers") or child.get("mcpServers"), _source_path_join(child_prefix, "mcp_servers"), normalized, provenance)
+    return normalized, provenance
+
+
 def normalize_config(config):
     """Return (adapter name, normalized config, evidence provenance) for known agent schema shapes."""
     if not isinstance(config, dict):
         return "generic", {}, {}
+    for adapter_key in ("cursor", "windsurf"):
+        if isinstance(config.get(adapter_key), dict):
+            normalized, provenance = _normalize_editor_agent_config(config, adapter_key)
+            return adapter_key, normalized, provenance
+    if isinstance(config.get("langgraph"), dict) or isinstance(config.get("langchain"), dict):
+        normalized, provenance = _normalize_langgraph_config(config)
+        return "langgraph" if isinstance(config.get("langgraph"), dict) else "langchain", normalized, provenance
+    for adapter_key in ("crewai", "autogen"):
+        if isinstance(config.get(adapter_key), dict):
+            normalized, provenance = _normalize_crewai_autogen_config(config, adapter_key)
+            return adapter_key, normalized, provenance
     if isinstance(config.get("mcpServers"), dict) or isinstance(config.get("mcp_servers"), dict):
         normalized, provenance = _normalize_mcp_config(config)
         return "mcp", normalized, provenance
@@ -488,6 +685,71 @@ def _privileged_infra(config):
     return bool(_privileged_infra_paths(config))
 
 
+def _path_has_any(path, fragments):
+    lower_path = path.lower().replace("-", "_")
+    return any(fragment in lower_path for fragment in fragments)
+
+
+def _value_allows_unrestricted_egress(value):
+    unrestricted = {"*", "any", "all", "unrestricted", "0.0.0.0/0", "::/0", "internet"}
+    if isinstance(value, str):
+        return value.strip().lower() in unrestricted
+    if isinstance(value, list):
+        return any(_value_allows_unrestricted_egress(item) for item in value)
+    if isinstance(value, dict):
+        if any(key in value for key in ("allow", "allowlist", "domains", "egress", "destinations")):
+            return any(_value_allows_unrestricted_egress(value.get(key)) for key in ("allow", "allowlist", "domains", "egress", "destinations"))
+        if "mode" in value and str(value.get("mode", "")).lower() in unrestricted:
+            return True
+    return False
+
+
+def _unrestricted_network_egress_paths(config):
+    paths = []
+    for path, value in walk_items(config):
+        if _path_has_any(path, {"network", "egress", "allowlist", "domains"}) and _value_allows_unrestricted_egress(value):
+            paths.append(path)
+    return sorted(set(paths))
+
+
+def _runtime_package_install_paths(config):
+    paths = []
+    install_fragments = ("pip install", "npm install", "pnpm install", "yarn add", "uv add", "uv pip install")
+    for path, value in walk_items(config):
+        lower_value = str(value).lower()
+        if _path_has_any(path, {"package_install", "install_commands", "dependencies_runtime"}) and is_enabled(value):
+            paths.append(path)
+        elif isinstance(value, str) and any(fragment in lower_value for fragment in install_fragments):
+            paths.append(path)
+    return sorted(set(paths))
+
+
+def _unpinned_remote_tool_source_paths(config):
+    paths = []
+    for path, value in walk_items(config):
+        if _path_has_any(path, {"remote_tool_sources", "mcpservers", "mcp_servers", "tool_sources"}):
+            if isinstance(value, dict) and "pinned" in value and value.get("pinned") is False:
+                paths.append(path)
+            elif isinstance(value, str) and ("://" in value or "@" in value or value.startswith(("npx ", "uvx "))):
+                if not _pin_looks_stable(value):
+                    paths.append(path)
+    return sorted(set(paths))
+
+
+def _secret_env_to_dangerous_tool_paths(config):
+    secret_paths = _secrets_or_credentials_access_paths(config)
+    if not secret_paths:
+        return []
+    dangerous_paths = []
+    dangerous_paths.extend(_tool_paths(config, {"shell", "exec", "terminal", "python", "node"}))
+    dangerous_paths.extend(_tool_paths(config, {"mcp", "http", "browser"}))
+    dangerous_paths.extend(_runtime_package_install_paths(config))
+    dangerous_paths.extend(_network_egress_paths(config))
+    if not dangerous_paths:
+        return []
+    return sorted(set(secret_paths + dangerous_paths))
+
+
 def _approval_configured(config):
     approvals = config.get("approvals") if isinstance(config, dict) else None
     if isinstance(approvals, dict):
@@ -560,6 +822,10 @@ def lint_config(config):
         "browser_private_network_paths": _browser_private_network_paths,
         "approval_missing_paths": _approval_missing_paths,
         "model_risk_paths": _model_risk_paths,
+        "unpinned_remote_tool_source_paths": _unpinned_remote_tool_source_paths,
+        "runtime_package_install_paths": _runtime_package_install_paths,
+        "unrestricted_network_egress_paths": _unrestricted_network_egress_paths,
+        "secret_env_to_dangerous_tool_paths": _secret_env_to_dangerous_tool_paths,
     }
 
     def add_finding(finding_id, evidence_paths=None, severity=None):
@@ -605,6 +871,10 @@ def lint_config(config):
     unattended_autonomy = bool(unattended_autonomy_paths)
     privileged_infra_paths = _privileged_infra_paths(config)
     privileged_infra = bool(privileged_infra_paths)
+    unpinned_remote_tool_source_paths = RULE_REGISTRY["unpinned_remote_tool_source"].collect_evidence(config, helpers)
+    runtime_package_install_paths = RULE_REGISTRY["runtime_package_install"].collect_evidence(config, helpers)
+    unrestricted_network_egress_paths = RULE_REGISTRY["unrestricted_network_egress"].collect_evidence(config, helpers)
+    secret_env_to_dangerous_tool_paths = RULE_REGISTRY["secret_env_to_dangerous_tool"].collect_evidence(config, helpers)
 
     if code_execution:
         capabilities.append("shell_enabled")
@@ -640,6 +910,14 @@ def lint_config(config):
         capabilities.append("unattended_autonomy")
     if privileged_infra:
         capabilities.append("privileged_infra")
+    if unpinned_remote_tool_source_paths:
+        capabilities.append("unpinned_remote_tool_source")
+    if runtime_package_install_paths:
+        capabilities.append("runtime_package_install")
+    if unrestricted_network_egress_paths:
+        capabilities.append("unrestricted_network_egress")
+    if secret_env_to_dangerous_tool_paths:
+        capabilities.append("secret_env_to_dangerous_tool")
 
     lethal_trifecta = untrusted_inputs and private_data and outbound_actions
     if lethal_trifecta:
@@ -667,6 +945,18 @@ def lint_config(config):
     model_risk_paths = RULE_REGISTRY["weak_model_risk"].collect_evidence(config, helpers)
     if model_risk_paths:
         add_finding("weak_model_risk", model_risk_paths)
+
+    if unpinned_remote_tool_source_paths:
+        add_finding("unpinned_remote_tool_source", unpinned_remote_tool_source_paths)
+
+    if runtime_package_install_paths:
+        add_finding("runtime_package_install", runtime_package_install_paths)
+
+    if unrestricted_network_egress_paths:
+        add_finding("unrestricted_network_egress", unrestricted_network_egress_paths)
+
+    if secret_env_to_dangerous_tool_paths:
+        add_finding("secret_env_to_dangerous_tool", secret_env_to_dangerous_tool_paths)
 
     summary = {severity: sum(1 for finding in findings if finding["severity"] == severity) for severity in SEVERITIES}
     score = summary["critical"] * 40 + summary["high"] * 15 + summary["medium"] * 5 + summary["low"]

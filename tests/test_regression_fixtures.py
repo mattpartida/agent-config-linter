@@ -29,6 +29,12 @@ RISKY_FIXTURES = {
     "risky-weak-model.yaml": {
         "weak_model_risk",
     },
+    "risky-supply-chain-network-boundary.yaml": {
+        "unpinned_remote_tool_source",
+        "runtime_package_install",
+        "unrestricted_network_egress",
+        "secret_env_to_dangerous_tool",
+    },
 }
 
 SAFE_FIXTURES = {
@@ -38,6 +44,12 @@ SAFE_FIXTURES = {
     "safe-browser-public-only.yaml": {"browser_private_network"},
     "safe-privileged-infra-readonly.yaml": {"privileged_infra_control"},
     "safe-strong-model.yaml": {"weak_model_risk"},
+    "safe-pinned-scoped-network.yaml": {
+        "unpinned_remote_tool_source",
+        "runtime_package_install",
+        "unrestricted_network_egress",
+        "secret_env_to_dangerous_tool",
+    },
 }
 
 

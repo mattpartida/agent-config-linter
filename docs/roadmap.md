@@ -74,7 +74,11 @@
 
 ## Phase 2: real-world coverage expansion
 
+**Phase 2 status: Shipped.** Cursor, Windsurf, LangGraph/LangChain, CrewAI, and AutoGen-style config snippets are now fixture-backed adapters, and `ACL-011` through `ACL-014` cover supply-chain and network-boundary risks.
+
 ### 4. Add Cursor, Windsurf, and editor-agent config adapters
+
+**Status: Shipped.** Risky and safe Cursor/Windsurf fixtures live under `examples/config-shapes/`, adapters preserve source evidence for tested fields, and README documents supported/ignored behavior.
 
 **Why:** Developers increasingly grant editor agents shell, file, browser, and MCP access from workspace-local settings. These configs are high-value CI targets.
 
@@ -92,6 +96,8 @@
 
 ### 5. Add LangGraph/LangChain and CrewAI/AutoGen deployment snippets
 
+**Status: Shipped.** Minimal risky/safe framework-deployment fixtures are covered for LangGraph, CrewAI, and AutoGen-style snippets, with docs explicitly scoped to config snippets rather than arbitrary Python static analysis.
+
 **Why:** Agent frameworks encode tool permissions and autonomous execution differently from runtime configs. The linter should catch common dangerous deployment patterns without pretending to understand full Python code.
 
 **Deliverables:**
@@ -107,6 +113,8 @@
 - README documents the config-only boundary clearly.
 
 ### 6. Expand rule coverage for supply-chain and network boundaries
+
+**Status: Shipped.** Added stable rules `ACL-011` through `ACL-014` for unpinned remote tool sources, runtime package installs, unrestricted egress, and secret-bearing environments exposed to dangerous tools. Each new rule has risky and safe regression coverage plus README/rules/coverage docs.
 
 **Why:** Current rules cover dangerous agent capabilities, but real incidents often involve unpinned tools, broad package install permissions, or unrestricted egress.
 

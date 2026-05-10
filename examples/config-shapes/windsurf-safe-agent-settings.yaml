@@ -1,0 +1,13 @@
+windsurf:
+  agent:
+    tools:
+      shell: false
+      http: true
+    mode: review
+    approvals:
+      shell: true
+      send_email: true
+    network:
+      egress: [api.github.com]
+    package_install:
+      enabled: false

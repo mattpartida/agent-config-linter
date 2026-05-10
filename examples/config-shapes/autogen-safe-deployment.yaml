@@ -1,0 +1,14 @@
+autogen:
+  group_chat:
+    human_input_mode: ALWAYS
+    agents:
+      - name: reviewer
+        tools:
+          - read_docs
+          - search_docs
+    network:
+      egress:
+        - docs.python.org
+    approvals:
+      shell: true
+      send_email: true

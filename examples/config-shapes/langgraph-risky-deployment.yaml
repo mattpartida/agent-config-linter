@@ -1,0 +1,20 @@
+langgraph:
+  deployment:
+    triggers:
+      webhook: true
+      cron: "0 * * * *"
+    autonomy:
+      mode: unattended
+    tools:
+      - shell
+      - requests
+      - send_email
+    runtime:
+      package_install: true
+      install_commands:
+        - pip install langchain-community
+    network:
+      egress: "*"
+    secrets:
+      env:
+        - OPENAI_API_KEY

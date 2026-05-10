@@ -1,0 +1,18 @@
+langgraph:
+  deployment:
+    triggers:
+      manual: true
+    autonomy:
+      mode: review
+    tools:
+      - retriever
+      - calculator
+    runtime:
+      package_install: false
+    network:
+      egress:
+        - api.openai.com
+    secrets: {}
+    approvals:
+      shell: true
+      send_email: true

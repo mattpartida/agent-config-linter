@@ -16,6 +16,14 @@ Every rule should have at least one fixture-backed example before its detection 
 | ACL-008 `approval-gate-missing` | Dangerous action approval gates are disabled. | `tests/fixtures/regression/risky-weak-approval-gates.yaml` | `tests/fixtures/regression/safe-approval-gated-shell.yaml` keeps approvals enabled. |
 | ACL-009 `weak-model-risk` | Model name suggests weak local/small/uncensored behavior. | `tests/fixtures/regression/risky-weak-model.yaml` | `tests/fixtures/regression/safe-strong-model.yaml` uses a stronger model name. |
 | ACL-010 `filesystem-write-access` | Filesystem configuration permits write access. | `tests/fixtures/regression/risky-prompt-injection-exfiltration.yaml` | `tests/fixtures/regression/safe-readonly-project-files.yaml` covers read-only project paths. |
+| ACL-011 `unpinned-remote-tool-source` | Remote MCP/tool package, URL, or command is not version/commit/digest pinned. | `tests/fixtures/regression/risky-supply-chain-network-boundary.yaml` | `tests/fixtures/regression/safe-pinned-scoped-network.yaml` uses a pinned local tool source. |
+| ACL-012 `runtime-package-install` | Runtime package installation is enabled or package-manager install commands can run. | `tests/fixtures/regression/risky-supply-chain-network-boundary.yaml` | `tests/fixtures/regression/safe-pinned-scoped-network.yaml` disables runtime package installation. |
+| ACL-013 `unrestricted-network-egress` | Network egress allows all destinations. | `tests/fixtures/regression/risky-supply-chain-network-boundary.yaml` | `tests/fixtures/regression/safe-pinned-scoped-network.yaml` limits egress to `api.github.com`. |
+| ACL-014 `secret-env-to-dangerous-tool` | Secret/env access is exposed to shell, MCP, package-install, or outbound tools. | `tests/fixtures/regression/risky-supply-chain-network-boundary.yaml` | `tests/fixtures/regression/safe-pinned-scoped-network.yaml` lacks dangerous tools with exposed secrets. |
+
+## Config-shape fixture corpus
+
+`examples/config-shapes/` includes risky and safe examples for Hermes, OpenClaw, MCP, GitHub Actions, Cursor, Windsurf, LangGraph/LangChain, CrewAI, and AutoGen-style snippets. Adapter tests assert both the selected `schema.adapter` and behaviorally important finding IDs so unsupported fields remain ignored until fixture-backed.
 
 ## Adding or changing rules
 

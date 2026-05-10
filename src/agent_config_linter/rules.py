@@ -54,6 +54,22 @@ def collect_weak_model_evidence(config: dict[str, Any], helpers: CollectorHelper
     return _helper("model_risk_paths", helpers)(config)
 
 
+def collect_unpinned_remote_tool_source_evidence(config: dict[str, Any], helpers: CollectorHelpers) -> list[str]:
+    return _helper("unpinned_remote_tool_source_paths", helpers)(config)
+
+
+def collect_runtime_package_install_evidence(config: dict[str, Any], helpers: CollectorHelpers) -> list[str]:
+    return _helper("runtime_package_install_paths", helpers)(config)
+
+
+def collect_unrestricted_network_egress_evidence(config: dict[str, Any], helpers: CollectorHelpers) -> list[str]:
+    return _helper("unrestricted_network_egress_paths", helpers)(config)
+
+
+def collect_secret_env_to_dangerous_tool_evidence(config: dict[str, Any], helpers: CollectorHelpers) -> list[str]:
+    return _helper("secret_env_to_dangerous_tool_paths", helpers)(config)
+
+
 def collect_no_evidence(_config: dict[str, Any], _helpers: CollectorHelpers) -> list[str]:
     """Composite rules receive pre-computed evidence paths from the linter."""
 
@@ -170,5 +186,49 @@ RULE_REGISTRY = {
         evidence="Filesystem configuration permits write-capable access",
         remediation="Prefer read-only filesystem mounts unless writes are required and path-scoped.",
         collect_evidence=collect_filesystem_write_evidence,
+    ),
+    "unpinned_remote_tool_source": RuleDefinition(
+        finding_id="unpinned_remote_tool_source",
+        rule_id="ACL-011",
+        rule_name="unpinned-remote-tool-source",
+        default_severity="high",
+        confidence="medium",
+        title="Remote tool source is not pinned",
+        evidence="A remote MCP/tool package, URL, or command does not appear version-pinned or digest-pinned",
+        remediation="Pin remote tools by exact version, commit, or digest and review update provenance.",
+        collect_evidence=collect_unpinned_remote_tool_source_evidence,
+    ),
+    "runtime_package_install": RuleDefinition(
+        finding_id="runtime_package_install",
+        rule_id="ACL-012",
+        rule_name="runtime-package-install",
+        default_severity="high",
+        confidence="high",
+        title="Runtime package installation is enabled",
+        evidence="Agent runtime can install packages or run package-manager install commands",
+        remediation="Pre-build dependencies or require approval and lockfiles for runtime package installation.",
+        collect_evidence=collect_runtime_package_install_evidence,
+    ),
+    "unrestricted_network_egress": RuleDefinition(
+        finding_id="unrestricted_network_egress",
+        rule_id="ACL-013",
+        rule_name="unrestricted-network-egress",
+        default_severity="high",
+        confidence="high",
+        title="Network egress is unrestricted",
+        evidence="Network egress allows all destinations instead of a domain-scoped allowlist",
+        remediation="Restrict network egress to reviewed domains or service endpoints.",
+        collect_evidence=collect_unrestricted_network_egress_evidence,
+    ),
+    "secret_env_to_dangerous_tool": RuleDefinition(
+        finding_id="secret_env_to_dangerous_tool",
+        rule_id="ACL-014",
+        rule_name="secret-env-to-dangerous-tool",
+        default_severity="critical",
+        confidence="high",
+        title="Secret-bearing environment exposed to dangerous tool",
+        evidence="Secret or environment variables are available to shell, MCP, package, or outbound tools",
+        remediation="Do not expose broad environment secrets to dangerous tools; use scoped credentials and approval gates.",
+        collect_evidence=collect_secret_env_to_dangerous_tool_evidence,
     ),
 }

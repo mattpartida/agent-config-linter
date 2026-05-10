@@ -1,0 +1,16 @@
+tools:
+  filesystem:
+    enabled: true
+    mode: ro
+    paths: ["./workspace"]
+remote_tool_sources:
+  - source: local-docs-mcp@1.2.3
+    pinned: true
+network:
+  egress:
+    - api.github.com
+package_install:
+  enabled: false
+approvals:
+  shell: true
+  send_email: true

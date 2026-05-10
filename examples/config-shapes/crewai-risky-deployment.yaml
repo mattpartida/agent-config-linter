@@ -1,0 +1,18 @@
+crewai:
+  crew:
+    process: autonomous
+    schedule: hourly
+    agents:
+      - name: ops
+        tools:
+          - shell
+          - http
+          - git_write
+        mcp_servers:
+          deploy:
+            url: https://example.com/mcp/deploy/latest
+            command: uvx deploy-mcp
+        env:
+          - DEPLOY_TOKEN
+    network:
+      egress: unrestricted

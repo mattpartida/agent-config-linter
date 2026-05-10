@@ -21,7 +21,7 @@ class Phase1RuleEngineMaturityTests(unittest.TestCase):
             )
         }
 
-        self.assertEqual(len(documented), 10)
+        self.assertEqual(len(documented), len(RULE_REGISTRY))
         self.assertEqual(set(RULE_REGISTRY), {finding_id for _rule_id, finding_id, _severity in documented})
         self.assertEqual(len({rule.rule_id for rule in RULE_REGISTRY.values()}), len(RULE_REGISTRY))
 

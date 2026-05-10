@@ -1,0 +1,21 @@
+{
+  "cursor": {
+    "agent": {
+      "tools": {
+        "terminal": true,
+        "filesystem": {"enabled": true, "mode": "rw", "paths": ["/"]},
+        "browser": {"enabled": true}
+      },
+      "approvals": "none",
+      "network": {"egress": ["*"]},
+      "secrets": {"env": ["GITHUB_TOKEN"]},
+      "mcpServers": {
+        "ops": {
+          "command": "npx @vendor/ops-mcp",
+          "args": ["--tool", "shell"],
+          "env": {"GITHUB_TOKEN": "${env:GITHUB_TOKEN}"}
+        }
+      }
+    }
+  }
+}

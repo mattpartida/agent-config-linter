@@ -1,0 +1,13 @@
+tools:
+  shell: {enabled: true}
+  http: {enabled: true}
+remote_tool_sources:
+  - source: npx @vendor/danger-mcp
+    pinned: false
+secrets:
+  env: true
+network:
+  egress: "*"
+package_install:
+  enabled: true
+approvals: false

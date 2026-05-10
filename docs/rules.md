@@ -15,12 +15,22 @@ Stable rule IDs are included in JSON findings and SARIF output so CI systems, ba
 | ACL-009 | `weak_model_risk` | medium | Model name suggests small, local, uncensored, or weak-guardrail routing. |
 | ACL-010 | `filesystem_write_access` | high | Filesystem configuration permits write-capable access. |
 
-## Severity model
+## Severity and confidence model
+
+Severity describes expected impact. Confidence describes detector precision and how much trust CI should place in the finding without manual review.
 
 - `critical`: unsafe capability combinations that can plausibly turn prompt injection or autonomy into data exfiltration, infrastructure control, destructive changes, or high-impact outbound actions.
 - `high`: a single high-risk capability that should normally be constrained before autonomous use.
 - `medium`: a risk amplifier that becomes more important when combined with high-impact tools.
 - `low`: informational findings.
+
+Confidence values are additive finding metadata:
+
+- `high`: deterministic config evidence points directly at the capability or dangerous combination.
+- `medium`: heuristic risk hint, such as weak/local model naming, where context may change severity decisions.
+- `low`: reserved for future weak-signal checks that should not normally block CI on their own.
+
+Gate on severity when impact is the main concern, on confidence when false-positive tolerance matters, and on both for strict CI. Policy files can use `min_confidence` to filter lower-confidence findings while preserving audit fields.
 
 ## Output formats
 

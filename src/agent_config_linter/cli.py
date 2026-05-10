@@ -16,6 +16,8 @@ from .linter import lint_config
 
 SEVERITIES = ("critical", "high", "medium", "low")
 SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
+CONFIDENCES = ("high", "medium", "low")
+CONFIDENCE_RANK = {confidence: index for index, confidence in enumerate(CONFIDENCES)}
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
@@ -126,10 +128,15 @@ def _load_policy(path):
             if field_name in entry and not isinstance(entry[field_name], str):
                 raise ConfigValidationError(f"Policy {field_prefix}.{field_name} must be a string", f"{field_prefix}.{field_name}")
 
+    min_confidence = policy.get("min_confidence")
+    if min_confidence is not None and min_confidence not in CONFIDENCES:
+        raise ConfigValidationError(f"Invalid min_confidence: {min_confidence}", "min_confidence")
+
     return {
         "severity_overrides": dict(severity_overrides),
         "disabled_rules": set(disabled_rules),
         "allowlists": allowlists,
+        "min_confidence": min_confidence,
     }
 
 
@@ -196,6 +203,28 @@ def _finalize_report(report):
     return report
 
 
+def _confidence_at_or_above(confidence, threshold):
+    return CONFIDENCE_RANK.get(confidence, len(CONFIDENCE_RANK)) <= CONFIDENCE_RANK[threshold]
+
+
+def _apply_min_confidence(report, threshold):
+    if not threshold:
+        return report
+    remaining_findings = []
+    filtered_findings = []
+    for finding in report.get("findings", []):
+        if _confidence_at_or_above(finding.get("confidence", "low"), threshold):
+            remaining_findings.append(finding)
+        else:
+            filtered_findings.append(finding)
+    report["findings"] = remaining_findings
+    report["confidence_filtered_findings"] = filtered_findings
+    report["confidence_filtered_summary"] = {
+        severity: sum(1 for finding in filtered_findings if finding["severity"] == severity) for severity in SEVERITIES
+    }
+    return _finalize_report(report)
+
+
 def _apply_policy(report, path, policy):
     if not policy:
         return report
@@ -251,7 +280,7 @@ def _apply_policy(report, path, policy):
     report["policy_suppressed_summary"] = {
         severity: sum(1 for finding in suppressed_findings if finding["severity"] == severity) for severity in SEVERITIES
     }
-    return _finalize_report(report)
+    return _apply_min_confidence(_finalize_report(report), policy.get("min_confidence"))
 
 
 def _apply_baseline(report, path, suppressions, matched_suppression_ids=None):
@@ -332,6 +361,24 @@ def _source_line_for_evidence(path, evidence_paths):
         return 1
     for evidence_path in evidence_paths:
         segments = _evidence_path_segments(evidence_path)
+        if len(segments) >= 2:
+            parent_key = segments[-2][0]
+            leaf_key = segments[-1][0]
+            parent_pattern = re.compile(rf"^\s*[\"']?{re.escape(parent_key)}[\"']?\s*[:=]")
+            leaf_pattern = re.compile(rf"^\s*[\"']?{re.escape(leaf_key)}[\"']?\s*[:=]")
+            for parent_line_index, line in enumerate(lines):
+                if not parent_pattern.search(line):
+                    continue
+                parent_indent = len(line) - len(line.lstrip())
+                for candidate_index in range(parent_line_index + 1, len(lines)):
+                    candidate = lines[candidate_index]
+                    if not candidate.strip():
+                        continue
+                    candidate_indent = len(candidate) - len(candidate.lstrip())
+                    if candidate_indent <= parent_indent:
+                        break
+                    if leaf_pattern.search(candidate):
+                        return candidate_index + 1
         for key, index in reversed(segments):
             if index is not None:
                 indexed_line = _line_for_indexed_sequence(lines, key, index)
@@ -371,15 +418,16 @@ def _format_markdown(result):
         if findings:
             lines.extend(
                 [
-                    "| Rule | Severity | Finding | Title |",
-                    "| --- | --- | --- | --- |",
+                    "| Rule | Severity | Confidence | Finding | Title |",
+                    "| --- | --- | --- | --- | --- |",
                 ]
             )
             for finding in findings:
                 lines.append(
-                    "| {rule_id} | {severity} | {finding_id} | {title} |".format(
+                    "| {rule_id} | {severity} | {confidence} | {finding_id} | {title} |".format(
                         rule_id=_markdown_escape(finding.get("rule_id", finding["id"])),
                         severity=_markdown_escape(finding["severity"]),
+                        confidence=_markdown_escape(finding.get("confidence", "low")),
                         finding_id=_markdown_escape(finding["id"]),
                         title=_markdown_escape(finding["title"]),
                     )
@@ -435,13 +483,14 @@ def _format_github_markdown(result, summary_only=False):
         for finding in report.get("findings", [])
     ]
     if findings:
-        lines.extend(["### Findings", "", "| File | Rule | Severity | Finding | Remediation |", "| --- | --- | --- | --- | --- |"])
+        lines.extend(["### Findings", "", "| File | Rule | Severity | Confidence | Finding | Remediation |", "| --- | --- | --- | --- | --- | --- |"])
         for file_name, finding in findings:
             lines.append(
-                "| {file} | {rule_id} | {severity} | {title} | {remediation} |".format(
+                "| {file} | {rule_id} | {severity} | {confidence} | {title} | {remediation} |".format(
                     file=_markdown_escape(file_name),
                     rule_id=_markdown_escape(finding.get("rule_id", finding["id"])),
                     severity=_markdown_escape(finding["severity"]),
+                    confidence=_markdown_escape(finding.get("confidence", "low")),
                     title=_markdown_escape(finding["title"]),
                     remediation=_markdown_escape(finding["remediation"]),
                 )
@@ -465,10 +514,15 @@ def _format_sarif(result):
                     "shortDescription": {"text": finding["title"]},
                     "fullDescription": {"text": finding["evidence"]},
                     "help": {"text": finding["remediation"]},
-                    "properties": {"severity": finding["severity"], "finding_id": finding["id"]},
+                    "properties": {
+                        "severity": finding["severity"],
+                        "confidence": finding.get("confidence", "low"),
+                        "finding_id": finding["id"],
+                    },
                 },
             )
             evidence_paths = finding.get("evidence_paths", [])
+            source_evidence_paths = finding.get("source_evidence_paths", evidence_paths)
             sarif_results.append(
                 {
                     "ruleId": rule_id,
@@ -478,14 +532,16 @@ def _format_sarif(result):
                         {
                             "physicalLocation": {
                                 "artifactLocation": {"uri": report["path"]},
-                                "region": {"startLine": _source_line_for_evidence(report["path"], evidence_paths)},
+                                "region": {"startLine": _source_line_for_evidence(report["path"], source_evidence_paths)},
                             }
                         }
                     ],
                     "properties": {
                         "finding_id": finding["id"],
+                        "confidence": finding.get("confidence", "low"),
                         "remediation": finding["remediation"],
                         "evidence_paths": evidence_paths,
+                        "source_evidence_paths": source_evidence_paths,
                     },
                 }
             )

@@ -47,7 +47,7 @@ Output includes:
 - `score`
 - `signals.lethal_trifecta`
 - `signals.enabled_capabilities`
-- structured `findings`, including stable `rule_id` and `rule_name` fields
+- structured `findings`, including stable `rule_id`, `rule_name`, additive `confidence`, normalized `evidence_paths`, and original `source_evidence_paths` fields
 - optional `policy_suppressed_findings` and `policy_suppressed_summary` when a policy disables or allowlists findings
 - optional `suppressed_findings` and `suppressed_summary` when a baseline is provided
 - optional `baseline.stale_suppressions`/`baseline.stale_count` for baseline cleanup
@@ -100,6 +100,26 @@ Use the example workflow at [`.github/workflows/agent-config-linter-code-scannin
 
 For downstream repos, replace `.` with the config file or directory path that should be scanned.
 
+## Confidence and CI gating
+
+Findings include additive `confidence` metadata (`high`, `medium`, or `low`) so CI users can separate deterministic dangerous configurations from heuristic hints. Most capability and combination rules are high confidence; weak-model naming is medium confidence because model names are contextual.
+
+Use severity gates when impact should drive blocking decisions:
+
+```bash
+agent-config-lint configs/ --min-severity medium --fail-on high --format json
+```
+
+Use policy-level `min_confidence` when false-positive tolerance matters:
+
+```json
+{
+  "min_confidence": "high"
+}
+```
+
+A `min_confidence` policy keeps active findings at or above the requested confidence and reports lower-confidence entries under `confidence_filtered_findings` / `confidence_filtered_summary`.
+
 ## Policy configuration
 
 Use `--policy` to adapt default findings to org-specific risk decisions while keeping the linter deterministic without a policy. Policies can be JSON, YAML, or TOML files.
@@ -110,6 +130,7 @@ Use `--policy` to adapt default findings to org-specific risk decisions while ke
     "ACL-001": "medium"
   },
   "disabled_rules": ["weak_model_risk"],
+  "min_confidence": "medium",
   "allowlists": {
     "tools": ["shell"],
     "rules": ["ACL-009"],
@@ -129,6 +150,7 @@ Use `--policy` to adapt default findings to org-specific risk decisions while ke
 - `allowlists.tools` suppresses findings whose evidence points at an allowed `tools.<name>` path.
 - `allowlists.rules` suppresses matching rule IDs, rule names, or finding IDs.
 - `allowlists.paths` suppresses matching path globs, optionally narrowed by `rule_id` or `id`.
+- `min_confidence` filters active findings below the requested confidence (`high`, `medium`, or `low`) and reports them under `confidence_filtered_findings`.
 
 Invalid policy files are rejected before linting with exit code `2`. Validation errors include machine-readable field paths such as `allowlists.paths[0].rule_id`; see [docs/policy-schema.md](docs/policy-schema.md) for minimal, staged-adoption, and strict CI examples.
 
@@ -263,7 +285,7 @@ The previous MVP roadmap is complete: policy files, baselines, staged CI gates, 
 
 Next focus areas:
 
-1. Rule-engine maturity: finish the built-in rule registry migration, add confidence annotations, and preserve original-source evidence for adapter-normalized findings.
+1. Rule-engine maturity: built-in rule registry migration, confidence annotations, and original-source evidence for adapter-normalized findings are shipped.
 2. Real-world coverage expansion: add editor-agent and framework-deployment adapters plus supply-chain/network-boundary rules.
 3. Adoption and operations: improve baseline aging, policy bundles, and GitHub Actions integration ergonomics.
 4. Distribution and trust: prepare a stable `0.2.0`, expand compatibility testing, and design safe third-party rule-pack loading without executing external code yet.

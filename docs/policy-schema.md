@@ -10,6 +10,7 @@ Invalid policies fail before linting with exit code `2`. JSON output includes bo
 | --- | --- | --- |
 | `severity_overrides` | object mapping rule/finding IDs to `critical`, `high`, `medium`, or `low` | Reclassify default severities for local policy. Alias: `severities`. |
 | `disabled_rules` | list of strings | Move matching findings into `policy_suppressed_findings`. Entries may be stable rule IDs, rule names, or finding IDs. Alias: `rule_disables`. |
+| `min_confidence` | string: `high`, `medium`, or `low` | Keep only active findings at or above the requested confidence and report lower-confidence entries under `confidence_filtered_findings`. |
 | `allowlists.tools` | list of strings | Suppress findings whose evidence path points at an allowed `tools.<name>` entry. |
 | `allowlists.rules` | list of strings | Suppress matching stable rule IDs, rule names, or finding IDs. |
 | `allowlists.paths` | list of objects | Suppress findings for matching config path globs, optionally narrowed by `rule_id` or `id`. |

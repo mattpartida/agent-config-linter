@@ -21,11 +21,15 @@
             "text": "Shell execution is enabled: Agent can run local commands"
           },
           "properties": {
+            "confidence": "high",
             "evidence_paths": [
               "tools.shell"
             ],
             "finding_id": "shell_enabled",
-            "remediation": "Require explicit approval and sandbox shell execution."
+            "remediation": "Require explicit approval and sandbox shell execution.",
+            "source_evidence_paths": [
+              "tools.shell"
+            ]
           },
           "ruleId": "ACL-001"
         },
@@ -47,11 +51,15 @@
             "text": "Broad filesystem access: Filesystem roots include broad or unrestricted paths"
           },
           "properties": {
+            "confidence": "high",
             "evidence_paths": [
               "tools.filesystem"
             ],
             "finding_id": "filesystem_broad_access",
-            "remediation": "Constrain file access to project-scoped allowlists."
+            "remediation": "Constrain file access to project-scoped allowlists.",
+            "source_evidence_paths": [
+              "tools.filesystem"
+            ]
           },
           "ruleId": "ACL-002"
         },
@@ -64,7 +72,7 @@
                   "uri": "examples/high-risk-agent.json"
                 },
                 "region": {
-                  "startLine": 1
+                  "startLine": 6
                 }
               }
             }
@@ -73,9 +81,15 @@
             "text": "Browser can reach private network: Browser config permits LAN/localhost/private network access"
           },
           "properties": {
-            "evidence_paths": [],
+            "confidence": "high",
+            "evidence_paths": [
+              "tools.browser"
+            ],
             "finding_id": "browser_private_network",
-            "remediation": "Block private network ranges unless explicitly needed."
+            "remediation": "Block private network ranges unless explicitly needed.",
+            "source_evidence_paths": [
+              "tools.browser"
+            ]
           },
           "ruleId": "ACL-003"
         },
@@ -97,6 +111,7 @@
             "text": "Lethal trifecta present: Untrusted content, private data, and outbound action all appear enabled"
           },
           "properties": {
+            "confidence": "high",
             "evidence_paths": [
               "inputs.web",
               "inputs.discord",
@@ -113,7 +128,22 @@
               "tools.browser.private_network"
             ],
             "finding_id": "lethal_trifecta",
-            "remediation": "Break at least one leg with isolation, deny-by-default tools, or approval gates."
+            "remediation": "Break at least one leg with isolation, deny-by-default tools, or approval gates.",
+            "source_evidence_paths": [
+              "inputs.web",
+              "inputs.discord",
+              "inputs.discord.enabled",
+              "tools.filesystem",
+              "tools.filesystem.enabled",
+              "tools.email",
+              "tools.email.enabled",
+              "memory",
+              "memory.enabled",
+              "memory.write",
+              "tools.browser",
+              "tools.browser.enabled",
+              "tools.browser.private_network"
+            ]
           },
           "ruleId": "ACL-004"
         },
@@ -126,7 +156,7 @@
                   "uri": "examples/high-risk-agent.json"
                 },
                 "region": {
-                  "startLine": 1
+                  "startLine": 10
                 }
               }
             }
@@ -135,9 +165,17 @@
             "text": "Approval gate disabled for dangerous action: Approvals config disables one or more high-risk action gates"
           },
           "properties": {
-            "evidence_paths": [],
+            "confidence": "high",
+            "evidence_paths": [
+              "approvals.send_email",
+              "approvals.shell"
+            ],
             "finding_id": "approval_gate_missing",
-            "remediation": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes."
+            "remediation": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes.",
+            "source_evidence_paths": [
+              "approvals.send_email",
+              "approvals.shell"
+            ]
           },
           "ruleId": "ACL-008"
         },
@@ -159,11 +197,15 @@
             "text": "Model may be weaker against prompt injection: Model name suggests small/local/uncensored configuration"
           },
           "properties": {
+            "confidence": "medium",
             "evidence_paths": [
               "model"
             ],
             "finding_id": "weak_model_risk",
-            "remediation": "Use stronger models for adversarial routing or add stricter tool gates."
+            "remediation": "Use stronger models for adversarial routing or add stricter tool gates.",
+            "source_evidence_paths": [
+              "model"
+            ]
           },
           "ruleId": "ACL-009"
         }
@@ -183,6 +225,7 @@
               "id": "ACL-001",
               "name": "shell-enabled",
               "properties": {
+                "confidence": "high",
                 "finding_id": "shell_enabled",
                 "severity": "high"
               },
@@ -200,6 +243,7 @@
               "id": "ACL-002",
               "name": "filesystem-broad-access",
               "properties": {
+                "confidence": "high",
                 "finding_id": "filesystem_broad_access",
                 "severity": "high"
               },
@@ -217,6 +261,7 @@
               "id": "ACL-003",
               "name": "browser-private-network",
               "properties": {
+                "confidence": "high",
                 "finding_id": "browser_private_network",
                 "severity": "high"
               },
@@ -234,6 +279,7 @@
               "id": "ACL-004",
               "name": "lethal-trifecta",
               "properties": {
+                "confidence": "high",
                 "finding_id": "lethal_trifecta",
                 "severity": "critical"
               },
@@ -251,6 +297,7 @@
               "id": "ACL-008",
               "name": "approval-gate-missing",
               "properties": {
+                "confidence": "high",
                 "finding_id": "approval_gate_missing",
                 "severity": "critical"
               },
@@ -268,6 +315,7 @@
               "id": "ACL-009",
               "name": "weak-model-risk",
               "properties": {
+                "confidence": "medium",
                 "finding_id": "weak_model_risk",
                 "severity": "medium"
               },

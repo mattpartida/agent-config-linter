@@ -13,7 +13,11 @@
 
 ## Phase 1: rule-engine maturity
 
+**Phase 1 status: Shipped.** The built-in rules now share a complete registry, findings include additive confidence and source provenance fields, policy files support `min_confidence`, and SARIF locations prefer adapter source paths when available.
+
 ### 1. Complete the built-in rule registry migration
+
+**Status: Shipped.** All `ACL-*` metadata now lives in `src/agent_config_linter/rules.py`, and tests compare the registry against `docs/rules.md` and README.
 
 **Why:** `ACL-001` is now registry-backed, but the remaining rules still keep metadata and evidence logic split across the linter. Moving the rest into a registry reduces boilerplate and makes future rule additions safer.
 
@@ -32,6 +36,8 @@
 
 ### 2. Add rule-level confidence and precision annotations
 
+**Status: Shipped.** Findings now include additive `confidence`; SARIF and Markdown expose it; policy files can filter lower-confidence findings with `min_confidence`.
+
 **Why:** CI users need to distinguish high-confidence dangerous combinations from heuristic risk hints when deciding what should block merges.
 
 **Deliverables:**
@@ -48,6 +54,8 @@
 - Docs explain when to gate on severity, confidence, or both.
 
 ### 3. Improve evidence provenance for normalized adapters
+
+**Status: Shipped.** Adapter-backed findings now preserve normalized `evidence_paths` and original `source_evidence_paths`; SARIF source-line lookup prefers the original source paths.
 
 **Why:** Adapter-normalized findings can currently point at normalized capability paths rather than the original source shape. Reviewers need to know which original config field caused a finding.
 

@@ -151,7 +151,7 @@ class LinterTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertIn("# Agent Config Linter Report", output)
         self.assertIn("## agent.json", output)
-        self.assertIn("| ACL-001 | high | shell_enabled | Shell execution is enabled |", output)
+        self.assertIn("| ACL-001 | high | high | shell_enabled | Shell execution is enabled |", output)
 
     def test_cli_emits_sarif_report(self):
         from agent_config_linter.cli import run

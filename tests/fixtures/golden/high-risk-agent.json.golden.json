@@ -4,6 +4,7 @@
     {
       "findings": [
         {
+          "confidence": "high",
           "evidence": "Agent can run local commands",
           "evidence_paths": [
             "tools.shell"
@@ -13,9 +14,13 @@
           "rule_id": "ACL-001",
           "rule_name": "shell-enabled",
           "severity": "high",
+          "source_evidence_paths": [
+            "tools.shell"
+          ],
           "title": "Shell execution is enabled"
         },
         {
+          "confidence": "high",
           "evidence": "Filesystem roots include broad or unrestricted paths",
           "evidence_paths": [
             "tools.filesystem"
@@ -25,19 +30,29 @@
           "rule_id": "ACL-002",
           "rule_name": "filesystem-broad-access",
           "severity": "high",
+          "source_evidence_paths": [
+            "tools.filesystem"
+          ],
           "title": "Broad filesystem access"
         },
         {
+          "confidence": "high",
           "evidence": "Browser config permits LAN/localhost/private network access",
-          "evidence_paths": [],
+          "evidence_paths": [
+            "tools.browser"
+          ],
           "id": "browser_private_network",
           "remediation": "Block private network ranges unless explicitly needed.",
           "rule_id": "ACL-003",
           "rule_name": "browser-private-network",
           "severity": "high",
+          "source_evidence_paths": [
+            "tools.browser"
+          ],
           "title": "Browser can reach private network"
         },
         {
+          "confidence": "high",
           "evidence": "Untrusted content, private data, and outbound action all appear enabled",
           "evidence_paths": [
             "inputs.web",
@@ -59,19 +74,43 @@
           "rule_id": "ACL-004",
           "rule_name": "lethal-trifecta",
           "severity": "critical",
+          "source_evidence_paths": [
+            "inputs.web",
+            "inputs.discord",
+            "inputs.discord.enabled",
+            "tools.filesystem",
+            "tools.filesystem.enabled",
+            "tools.email",
+            "tools.email.enabled",
+            "memory",
+            "memory.enabled",
+            "memory.write",
+            "tools.browser",
+            "tools.browser.enabled",
+            "tools.browser.private_network"
+          ],
           "title": "Lethal trifecta present"
         },
         {
+          "confidence": "high",
           "evidence": "Approvals config disables one or more high-risk action gates",
-          "evidence_paths": [],
+          "evidence_paths": [
+            "approvals.send_email",
+            "approvals.shell"
+          ],
           "id": "approval_gate_missing",
           "remediation": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes.",
           "rule_id": "ACL-008",
           "rule_name": "approval-gate-missing",
           "severity": "critical",
+          "source_evidence_paths": [
+            "approvals.send_email",
+            "approvals.shell"
+          ],
           "title": "Approval gate disabled for dangerous action"
         },
         {
+          "confidence": "medium",
           "evidence": "Model name suggests small/local/uncensored configuration",
           "evidence_paths": [
             "model"
@@ -81,6 +120,9 @@
           "rule_id": "ACL-009",
           "rule_name": "weak-model-risk",
           "severity": "medium",
+          "source_evidence_paths": [
+            "model"
+          ],
           "title": "Model may be weaker against prompt injection"
         }
       ],

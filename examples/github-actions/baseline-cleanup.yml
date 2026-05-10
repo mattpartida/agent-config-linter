@@ -1,0 +1,32 @@
+name: agent-config-linter baseline cleanup
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  review-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install agent-config-linter
+        run: python -m pip install --upgrade pip agent-config-linter
+
+      - name: Fail on stale or expired baseline suppressions
+        run: >-
+          agent-config-lint .
+          --baseline agent-config-linter-baseline.json
+          --fail-on-stale-baseline
+          --fail-on-expired-baseline
+          --format json

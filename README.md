@@ -37,6 +37,7 @@ agent-config-lint path/to/config-directory --baseline agent-config-linter-baseli
 agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --format json
 agent-config-lint path/to/config-directory --generate-baseline agent-config-linter-baseline.json --format json
 agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --fail-on-stale-baseline --format json
+agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --fail-on-expired-baseline --format json
 agent-config-lint path/to/config-directory --min-severity medium --fail-on high --format json
 agent-config-lint --version
 ```
@@ -51,6 +52,7 @@ Output includes:
 - optional `policy_suppressed_findings` and `policy_suppressed_summary` when a policy disables or allowlists findings
 - optional `suppressed_findings` and `suppressed_summary` when a baseline is provided
 - optional `baseline.stale_suppressions`/`baseline.stale_count` for baseline cleanup
+- optional `baseline.expired_suppressions`/`baseline.expired_count` and `baseline.owner_summary` for baseline review
 - optional `filtered_findings`/`filtered_summary` when `--min-severity` filters low-priority findings
 - optional `exit_policy` when `--fail-on` is used for CI gating
 - `recommended_next_actions`
@@ -84,9 +86,18 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
+## GitHub Actions quick start
+
+Copy one of the adoption workflows from `examples/github-actions/` and replace `.` with the path containing your agent configs:
+
+- `examples/github-actions/code-scanning.yml`: uploads SARIF to GitHub code scanning with `contents: read` and `security-events: write`.
+- `examples/github-actions/pr-summary.yml`: writes a PR/job summary with read-only default permissions; comments are opt-in because they require `pull-requests: write`.
+- `examples/github-actions/staged-enforcement.yml`: runs a staged CI gate with `examples/policies/staged-ci.yaml`, `--min-severity medium`, and `--fail-on high`.
+- `examples/github-actions/baseline-cleanup.yml`: runs scheduled baseline cleanup with stale and expired suppression gates.
+
 ## GitHub code scanning
 
-Use the example workflow at [`.github/workflows/agent-config-linter-code-scanning.yml`](.github/workflows/agent-config-linter-code-scanning.yml) to generate SARIF and upload findings to GitHub code scanning:
+Use the example workflow at [`examples/github-actions/code-scanning.yml`](examples/github-actions/code-scanning.yml) to generate SARIF and upload findings to GitHub code scanning:
 
 ```yaml
 - name: Generate SARIF report
@@ -179,7 +190,15 @@ Each suppression must include `rule_id`, `finding_id`, or `id`, plus an optional
 - `ticket`: tracking issue/change record.
 - `expires_at`: ISO `YYYY-MM-DD` date. Expired suppressions do not match active findings.
 
-Use `--generate-baseline path/to/baseline.json` to write the current active findings as suppressions with TODO lifecycle metadata. When an existing baseline is supplied, stale suppressions that no longer match any finding are reported under `baseline.stale_suppressions`; add `--fail-on-stale-baseline` to return exit code `1` when cleanup is needed.
+Use `--generate-baseline path/to/baseline.json` to write the current active findings as suppressions with TODO lifecycle metadata. When an existing baseline is supplied, stale suppressions that no longer match any finding are reported under `baseline.stale_suppressions`; add `--fail-on-stale-baseline` to return exit code `1` when cleanup is needed. Expired suppressions are reported under `baseline.expired_suppressions`, and `baseline.owner_summary` groups active, stale, and expired suppressions by owner.
+
+Copy-pasteable expiration review command:
+
+```bash
+agent-config-lint configs/ --baseline agent-config-linter-baseline.json --fail-on-expired-baseline --format json
+```
+
+See [docs/baseline-review.md](docs/baseline-review.md) for owner-review and cleanup workflows.
 
 ## CI and developer experience
 
@@ -201,6 +220,7 @@ agent-config-lint configs/ --min-severity medium --fail-on high --format json
 - `--fail-on {critical,high,medium,low}` returns exit code `1` when remaining active findings meet or exceed the threshold and records the decision under `exit_policy`.
 - Validation/config errors still return exit code `2`.
 - `--fail-on-stale-baseline` also returns exit code `1` when stale baseline cleanup is needed.
+- `--fail-on-expired-baseline` returns exit code `1` when accepted-risk suppressions have passed `expires_at`.
 
 Examples for local adoption are included in:
 
@@ -208,6 +228,13 @@ Examples for local adoption are included in:
 - `examples/Taskfile.yml`
 - `docs/sample-agent-config-linter.sarif`
 - `examples/github-actions-pr-summary.yml`
+- `examples/policies/local-dev.yaml`
+- `examples/policies/staged-ci.yaml`
+- `examples/policies/strict-ci.yaml`
+- `examples/github-actions/code-scanning.yml`
+- `examples/github-actions/pr-summary.yml`
+- `examples/github-actions/staged-enforcement.yml`
+- `examples/github-actions/baseline-cleanup.yml`
 
 ## Packaging and releases
 

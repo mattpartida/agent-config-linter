@@ -21,6 +21,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 - Complete built-in rule registry metadata, finding confidence, policy `min_confidence`, and adapter source evidence provenance.
 - Cursor, Windsurf, LangGraph/LangChain, CrewAI, and AutoGen-style config-shape adapters with risky/safe fixtures.
 - Supply-chain and network-boundary rules `ACL-011` through `ACL-014` for unpinned remote tools, runtime package installation, unrestricted egress, and secret environments exposed to dangerous tools.
+- Baseline owner summaries, expired-suppression reporting, and `--fail-on-expired-baseline` for accepted-risk review gates.
+- Organization policy bundles for local development, staged CI, and strict CI under `examples/policies/`.
+- GitHub Actions adoption workflows for code scanning, PR summaries, staged enforcement, and baseline cleanup under `examples/github-actions/`.
 
 ## [0.1.0] - 2026-05-08
 

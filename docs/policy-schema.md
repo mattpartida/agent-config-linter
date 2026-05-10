@@ -50,6 +50,12 @@ ACL-009 = "low"
 
 ## Staged adoption policy
 
+Ready-to-copy policy bundles live in `examples/policies/`:
+
+- `examples/policies/local-dev.yaml` for developer machines and exploratory rollout.
+- `examples/policies/staged-ci.yaml` for non-blocking-to-gradual CI adoption.
+- `examples/policies/strict-ci.yaml` for mature repositories paired with `--fail-on high`.
+
 Use severity overrides and narrow allowlists while introducing the linter without blocking all existing findings at once.
 
 ```json

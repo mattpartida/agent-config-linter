@@ -139,6 +139,8 @@
 
 ## Phase 3: adoption and operations
 
+Phase 3 status: Shipped. Baseline owner/expiry reporting, policy bundles, GitHub Actions workflow examples, and adoption docs are implemented and covered by regression tests.
+
 ### 7. Build baseline aging and owner reporting
 
 **Why:** Baselines are useful only if accepted risk has owners, expiry, and cleanup pressure.

@@ -1,0 +1,12 @@
+description: Staged CI policy for rollout. It keeps medium-and-up findings visible while allowing a few documented development exceptions.
+severity_overrides:
+  ACL-001: medium
+  weak_model_risk: low
+min_confidence: medium
+allowlists:
+  paths:
+    - path: "examples/dev-*.json"
+      rule_id: ACL-001
+      reason: Development sandbox shell access has a separate owner review.
+  tools: []
+  rules: []

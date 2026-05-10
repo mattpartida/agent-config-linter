@@ -1,0 +1,11 @@
+description: Local developer policy that keeps noisy heuristics visible but low priority while preserving audit trails.
+severity_overrides:
+  ACL-009: low
+min_confidence: medium
+allowlists:
+  paths:
+    - path: "examples/dev-*.json"
+      rule_id: ACL-001
+      reason: Local-only sandbox shell access is reviewed separately before merge.
+  tools: []
+  rules: []

@@ -283,6 +283,11 @@ def _apply_policy(report, path, policy):
     return _apply_min_confidence(_finalize_report(report), policy.get("min_confidence"))
 
 
+def _is_expired_suppression(suppression, today=None):
+    expires_at = _validate_iso_date(suppression.get("expires_at"), "expires_at")
+    return bool(expires_at and expires_at < (today or date.today()))
+
+
 def _apply_baseline(report, path, suppressions, matched_suppression_ids=None):
     remaining_findings = []
     suppressed_findings = []
@@ -292,7 +297,7 @@ def _apply_baseline(report, path, suppressions, matched_suppression_ids=None):
             (
                 suppression
                 for suppression in suppressions
-                if not (_validate_iso_date(suppression.get("expires_at"), "expires_at") and _validate_iso_date(suppression.get("expires_at"), "expires_at") < today)
+                if not _is_expired_suppression(suppression, today)
                 and _suppression_matches(suppression, path, finding)
             ),
             None,
@@ -609,8 +614,38 @@ def _write_generated_baseline(path, reports):
     return baseline
 
 
+def _expired_suppressions(suppressions):
+    today = date.today()
+    return [suppression for suppression in suppressions if _is_expired_suppression(suppression, today)]
+
+
 def _stale_suppressions(suppressions, matched_suppression_ids):
-    return [suppression for suppression in suppressions if id(suppression) not in matched_suppression_ids]
+    return [
+        suppression
+        for suppression in suppressions
+        if id(suppression) not in matched_suppression_ids and not _is_expired_suppression(suppression)
+    ]
+
+
+def _owner_key(suppression):
+    return str(suppression.get("owner") or "unowned")
+
+
+def _baseline_owner_summary(suppressions, matched_suppression_ids, stale, expired):
+    summary = {}
+    stale_ids = {id(suppression) for suppression in stale}
+    expired_ids = {id(suppression) for suppression in expired}
+    for suppression in suppressions:
+        owner = _owner_key(suppression)
+        entry = summary.setdefault(owner, {"active": 0, "expired": 0, "stale": 0, "total": 0})
+        entry["total"] += 1
+        if id(suppression) in expired_ids:
+            entry["expired"] += 1
+        elif id(suppression) in stale_ids:
+            entry["stale"] += 1
+        elif id(suppression) in matched_suppression_ids:
+            entry["active"] += 1
+    return dict(sorted(summary.items()))
 
 
 def _severity_at_or_above(severity, threshold):
@@ -652,6 +687,7 @@ def run(argv=None):
     parser.add_argument("--policy", help="JSON, YAML, or TOML policy file with severity overrides, rule disables, and allowlists")
     parser.add_argument("--generate-baseline", help="Write current findings as baseline suppressions to this JSON file")
     parser.add_argument("--fail-on-stale-baseline", action="store_true", help="Exit non-zero when baseline suppressions no longer match any finding")
+    parser.add_argument("--fail-on-expired-baseline", action="store_true", help="Exit non-zero when baseline suppressions have passed expires_at")
     parser.add_argument("--min-severity", choices=SEVERITIES, help="Only include active findings at or above this severity")
     parser.add_argument("--fail-on", choices=SEVERITIES, help="Exit with code 1 when active findings meet or exceed this severity")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
@@ -727,8 +763,17 @@ def run(argv=None):
 
     if args.baseline:
         stale = _stale_suppressions(suppressions, matched_suppression_ids)
-        result["baseline"] = {"stale_count": len(stale), "stale_suppressions": stale}
+        expired = _expired_suppressions(suppressions)
+        result["baseline"] = {
+            "stale_count": len(stale),
+            "stale_suppressions": stale,
+            "expired_count": len(expired),
+            "expired_suppressions": expired,
+            "owner_summary": _baseline_owner_summary(suppressions, matched_suppression_ids, stale, expired),
+        }
         if stale and args.fail_on_stale_baseline and exit_code == 0:
+            exit_code = 1
+        if expired and args.fail_on_expired_baseline and exit_code == 0:
             exit_code = 1
 
     if args.generate_baseline and exit_code == 0:

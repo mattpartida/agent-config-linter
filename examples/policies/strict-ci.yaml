@@ -1,0 +1,13 @@
+description: Strict CI policy for mature repositories. Pair with --fail-on high to block high and critical active findings.
+severity_overrides:
+  ACL-004: critical
+  ACL-005: critical
+  ACL-006: critical
+  ACL-007: critical
+  ACL-008: critical
+disabled_rules: []
+min_confidence: low
+allowlists:
+  tools: []
+  rules: []
+  paths: []

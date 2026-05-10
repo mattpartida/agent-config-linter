@@ -1,183 +1,226 @@
 # Roadmap
 
-`agent-config-linter` has a usable local/CI MVP: stable rule IDs, JSON/Markdown/SARIF output, schema adapters, policy files, baselines, release automation, and a regression fixture corpus. The next phase should make the linter more accurate on real agent repos, easier to adopt at scale, and credible as a security gate.
+`agent-config-linter` has completed its first MVP roadmap: stable `ACL-*` rule IDs, JSON/Markdown/GitHub-Markdown/SARIF output, policy files, baselines, schema adapters, release automation, report stability tests, and a fixture-backed regression corpus. The next roadmap focuses on becoming a more precise security gate for real agent repositories and an easier tool to operate across teams.
 
 ## Guiding principles
 
 - Prefer deterministic checks over opaque model calls.
-- Every rule or adapter expansion needs fixture-backed risky and safe examples.
-- Optimize for actionable CI output: clear evidence paths, clear suppression lifecycle, clear remediation.
-- Keep the package dependency-light unless a dependency materially improves parser accuracy or distribution quality.
-- Preserve backward-compatible report fields whenever possible.
+- Every new rule, semantic change, or adapter expansion needs fixture-backed risky and safe examples.
+- Keep output actionable: stable rule IDs, clear evidence paths, source locations, remediation, and suppression lifecycle.
+- Preserve backward-compatible report fields whenever possible; use `docs/report-stability.md` before intentional output changes.
+- Keep the package dependency-light unless a dependency materially improves parser accuracy, packaging quality, or user trust.
+- Do not load third-party rule code until the built-in rule registry contract is stable and reviewed.
 
-## Near term: precision and coverage
+## Phase 1: rule-engine maturity
 
-### 1. Complete regression coverage for every existing rule
+### 1. Complete the built-in rule registry migration
 
-**Status:** Shipped. `ACL-007` and `ACL-009` now have dedicated risky and safe fixtures, and `docs/rule-coverage.md` lists risky plus negative coverage for every existing `ACL-*` rule.
-
-**Why:** `docs/rule-coverage.md` still notes fixture gaps for `ACL-007` and dedicated weak-model fixtures. Closing these gaps makes future rule edits safer.
-
-**Deliverables:**
-
-- Add risky and safe fixtures for `ACL-007 privileged_infra_control`.
-- Add dedicated risky and safe fixtures for `ACL-009 weak_model_risk`.
-- Update `tests/test_regression_fixtures.py` to assert the new fixtures.
-- Update `docs/rule-coverage.md` so no rule says "add a dedicated fixture when this rule changes."
-
-**Acceptance:**
-
-- `python -m pytest tests/test_regression_fixtures.py -q` passes.
-- `docs/rule-coverage.md` lists at least one risky fixture and one safe/negative fixture for each `ACL-*` rule.
-
-### 2. Improve evidence paths and source locations
-
-**Status:** Shipped. Composite findings now emit evidence paths, and SARIF source-line mapping covers nested YAML/TOML plus indexed array/toolset evidence paths.
-
-**Why:** SARIF and PR-comment consumers need precise line numbers and evidence paths, especially for nested YAML/TOML configs and normalized schema adapters.
+**Why:** `ACL-001` is now registry-backed, but the remaining rules still keep metadata and evidence logic split across the linter. Moving the rest into a registry reduces boilerplate and makes future rule additions safer.
 
 **Deliverables:**
 
-- Include evidence paths for composite findings such as `lethal_trifecta`, `prompt_injection_exfiltration_bridge`, `unattended_dangerous_tools`, and `privileged_infra_control`.
-- Improve `_source_line_for_evidence` so paths with arrays and nested keys map to the most relevant source line.
-- Add tests with YAML, TOML, and JSON examples that validate SARIF line numbers.
+- Move all current `ACL-*` rule metadata into `src/agent_config_linter/rules.py`.
+- Keep stable finding IDs, rule IDs, default severities, titles, evidence text, and remediation text unchanged unless a golden fixture update explicitly documents the change.
+- Add tests proving registry metadata matches `docs/rules.md` and README rule tables.
+- Update `docs/rule-registry.md` with the final built-in rule authoring pattern.
 
 **Acceptance:**
 
-- SARIF results for composite rules include non-empty `properties.evidence_paths`.
-- Source-line tests cover nested YAML/TOML plus at least one array/toolset path.
+- `python -m pytest tests/test_report_golden.py -q` passes without unintentional output drift.
+- A test fails if any documented rule is missing from `RULE_REGISTRY`.
+- Adding a rule requires one registry entry plus tests/fixtures/docs, not edits scattered across the linter.
 
-### 3. Split broad filesystem and write-access semantics
+### 2. Add rule-level confidence and precision annotations
 
-**Status:** Shipped. `ACL-002` now focuses on broad roots/unrestricted filesystem mappings, while project-scoped writable paths raise `ACL-010` without also raising `ACL-002`. `docs/rules.md` includes the migration note.
-
-**Why:** `filesystem_broad_access` currently treats write-capable project-scoped access as broad. That is conservative, but users need clearer distinction between broad read access and scoped write access.
+**Why:** CI users need to distinguish high-confidence dangerous combinations from heuristic risk hints when deciding what should block merges.
 
 **Deliverables:**
 
-- Keep `ACL-010 filesystem_write_access` for write-capable paths.
-- Make `ACL-002 filesystem_broad_access` focus on broad roots like `/`, `~`, `$HOME`, `*`, host mounts, and unrestricted workspace mappings.
-- Add migration note explaining any summary/risk changes.
+- Add deterministic `confidence` values such as `high`, `medium`, and `low` to findings.
+- Document confidence semantics in `docs/rules.md` and README.
+- Preserve backward compatibility by treating `confidence` as an additive JSON/SARIF property.
+- Add policy support for `min_confidence` filtering if it can be implemented without complicating existing severity gates.
 
 **Acceptance:**
 
-- Project-scoped `mode: rw` triggers `ACL-010` but not `ACL-002`.
-- Root/home/unrestricted paths still trigger `ACL-002`.
+- Existing reports gain `confidence` without removing or renaming fields.
+- Golden fixtures cover JSON, Markdown, GitHub-Markdown, and SARIF confidence output.
+- Docs explain when to gate on severity, confidence, or both.
 
-## Mid term: real-world schema support
+### 3. Improve evidence provenance for normalized adapters
 
-### 4. Add adapter fixtures for more agent runtimes
-
-**Status:** Shipped. Added fixture-backed `mcp` and `github_actions` adapters, with risky and safe examples under `examples/config-shapes/`; README documents the supported fields and ignored-fields boundary.
-
-**Why:** The linter becomes more useful when it understands how popular runtimes encode tools, approvals, secrets, memory, and egress.
-
-**Candidate adapters:**
-
-- Claude Desktop / MCP server configs.
-- Cursor or Windsurf workspace agent settings.
-- LangGraph/LangChain deployment-style config snippets.
-- CrewAI/AutoGen-style tool and autonomy configs.
-- GitHub Actions agent workflows that expose secrets and write tokens.
+**Why:** Adapter-normalized findings can currently point at normalized capability paths rather than the original source shape. Reviewers need to know which original config field caused a finding.
 
 **Deliverables:**
 
-- Add representative examples under `examples/config-shapes/`.
-- Normalize only fields backed by tests.
-- Document supported fields in README and/or adapter-specific docs.
+- Track adapter provenance from original config paths to normalized evidence paths.
+- Add `source_evidence_paths` or equivalent additive field to findings.
+- Improve SARIF locations to prefer original source paths when available.
+- Add nested fixture tests for MCP, GitHub Actions, Hermes, OpenClaw, and OpenAI-compatible tool arrays.
 
 **Acceptance:**
 
-- Each new adapter has at least one risky fixture and one safe fixture.
-- Unsupported fields remain ignored rather than guessed.
+- SARIF locations for adapter-backed findings point to the source config line that caused the finding.
+- JSON findings preserve both normalized evidence and original source evidence where they differ.
+- Unsupported adapter fields remain ignored rather than guessed.
 
-### 5. Add policy schema documentation and validation output
+## Phase 2: real-world coverage expansion
 
-**Status:** Shipped. Added `docs/policy-schema.md` with minimal, staged-adoption, and strict CI examples. Policy validation errors now include machine-readable field paths such as `severity_overrides.ACL-001` and `allowlists.paths[0].rule_id`.
+### 4. Add Cursor, Windsurf, and editor-agent config adapters
 
-**Why:** Policy files are adoption-critical. Users need copy-pasteable schemas and better validation errors before wiring this into CI.
+**Why:** Developers increasingly grant editor agents shell, file, browser, and MCP access from workspace-local settings. These configs are high-value CI targets.
 
 **Deliverables:**
 
-- Add `docs/policy-schema.md` with JSON/YAML/TOML examples.
-- Emit validation errors with field paths, e.g. `allowlists.paths[0].rule_id`.
-- Add tests for invalid policy types, malformed path allowlists, and unknown severity values.
+- Add risky and safe fixtures under `examples/config-shapes/` for Cursor and Windsurf-style settings.
+- Normalize only tested fields for tool execution, file access, approvals, MCP servers, environment/secrets access, and network egress.
+- Document supported and ignored fields in README.
 
 **Acceptance:**
 
-- Invalid policy output identifies the exact invalid field.
-- Docs show minimal, staged-adoption, and strict CI policy examples.
+- Each adapter has at least one risky fixture and one safe fixture.
+- `tests/test_config_shapes.py` asserts adapter names and expected rule IDs.
+- CLI smoke over `examples/config-shapes/` includes the new adapters.
 
-### 6. Add report stability tests
+### 5. Add LangGraph/LangChain and CrewAI/AutoGen deployment snippets
 
-**Status:** Shipped. Added JSON, Markdown, and SARIF golden-output fixtures plus `tests/test_report_golden.py`. `docs/report-stability.md` documents the intentional-update workflow and `schema_version` checklist, and README now documents report compatibility expectations.
-
-**Why:** CI users will integrate against JSON fields and SARIF shape. Report drift should be deliberate.
+**Why:** Agent frameworks encode tool permissions and autonomous execution differently from runtime configs. The linter should catch common dangerous deployment patterns without pretending to understand full Python code.
 
 **Deliverables:**
 
-- Add golden-output fixtures for JSON, Markdown, and SARIF reports.
-- Add a focused update workflow in docs for intentional report changes.
-- Consider a `schema_version` bump checklist when output changes.
+- Add minimal YAML/JSON deployment-snippet fixtures for LangGraph/LangChain and CrewAI/AutoGen-style configs.
+- Detect explicit tool lists, scheduled/autonomous execution, outbound integrations, secrets/env references, and write/delete actions.
+- Document parsing boundaries: config snippets only, not static analysis of arbitrary application code.
 
 **Acceptance:**
 
-- Golden tests fail on unreviewed report-shape changes.
-- README documents compatibility expectations for `schema_version`.
+- Risky fixtures trigger relevant existing `ACL-*` rules.
+- Safe fixtures avoid false positives for read-only/review-only agents.
+- README documents the config-only boundary clearly.
 
-## Later: adoption and distribution
+### 6. Expand rule coverage for supply-chain and network boundaries
 
-### 7. First public release hardening
+**Why:** Current rules cover dangerous agent capabilities, but real incidents often involve unpinned tools, broad package install permissions, or unrestricted egress.
 
-**Status:** Shipped. `CHANGELOG.md` now covers the regression fixture corpus and roadmap docs, `SECURITY.md` defines vulnerability reporting expectations, `.github/workflows/release.yml` runs the built-wheel install smoke test, and `scripts/install-smoke.py` verifies `agent-config-lint --version` in a clean virtual environment.
+**Candidate rules:**
 
-**Why:** The project has release automation but still needs pre-release polish before broader adoption.
+- Unpinned remote MCP/tool source.
+- Runtime package installation enabled without approval.
+- Unrestricted network egress versus domain-scoped allowlists.
+- Secret-bearing environment variables exposed to shell or MCP tools.
 
 **Deliverables:**
 
-- Update `CHANGELOG.md` with the regression corpus and roadmap docs.
-- Add an install smoke test from built wheel/sdist.
-- Verify PyPI trusted publishing config against a test tag or dry run.
-- Add `SECURITY.md` with vulnerability reporting expectations.
+- Design stable rule IDs and severities before implementation.
+- Add risky and safe fixtures for each accepted new rule.
+- Update `docs/rule-coverage.md`, `docs/rules.md`, README rule tables, and golden reports.
 
 **Acceptance:**
 
-- `python -m build` succeeds locally or in CI.
-- Built wheel can run `agent-config-lint --version` in a clean environment.
+- Every new rule has positive and negative regression fixtures.
+- Rules produce deterministic evidence paths and remediation.
+- Existing policy/baseline suppression semantics work with the new rule IDs.
 
-### 8. Better developer and reviewer UX
+## Phase 3: adoption and operations
 
-**Status:** Shipped. Added `--format github-markdown`, `--summary-only`, and `examples/github-actions-pr-summary.yml`; the example writes to `GITHUB_STEP_SUMMARY` with read-only permissions by default and documents PR comments as an explicit write-permission opt-in.
+### 7. Build baseline aging and owner reporting
 
-**Why:** The fastest path to adoption is a useful report in PRs, not just machine-readable CI artifacts.
+**Why:** Baselines are useful only if accepted risk has owners, expiry, and cleanup pressure.
 
 **Deliverables:**
 
-- Add `--format github-markdown` or a concise Markdown mode tuned for PR comments.
-- Add `--summary-only` for chat/CI logs.
-- Add examples that post Markdown findings as a PR comment.
+- Add summary fields grouped by suppression owner and expiration status.
+- Add a `--fail-on-expired-baseline` gate distinct from stale-baseline cleanup.
+- Add docs and examples for baseline review workflows.
 
 **Acceptance:**
 
-- Markdown output has stable sections and no noisy empty tables.
-- Example workflow can run without requiring write permissions unless PR comments are explicitly enabled.
+- Expired suppressions are machine-readable in JSON output.
+- CI can fail on expired suppressions without failing on merely stale suppressions unless requested.
+- Docs include a copy-pasteable baseline review command.
 
-### 9. Rule-pack architecture exploration
+### 8. Add organization policy bundles
 
-**Status:** Shipped. Added `src/agent_config_linter/rules.py` with a minimal `RuleDefinition` registry, migrated the `ACL-001 shell_enabled` metadata/evidence collector into it without changing output, and documented the built-in rule checklist plus future third-party rule boundaries in `docs/rule-registry.md`.
-
-**Why:** Different orgs will want different checks without forking the whole linter.
+**Why:** Teams need repeatable policy presets for local adoption, staged CI, and strict security gates.
 
 **Deliverables:**
 
-- Design a minimal in-repo rule registry that keeps stable IDs, default severities, remediation text, and evidence collectors together.
-- Prototype one rule moved into the registry without changing output.
-- Document how third-party rules might work later, but do not add plugin loading until needed.
+- Add `examples/policies/` with `local-dev`, `staged-ci`, and `strict-ci` policy files.
+- Add docs explaining when each preset is appropriate.
+- Add tests validating every example policy file with the CLI.
 
 **Acceptance:**
 
-- Existing tests pass with identical report output.
-- Adding a new built-in rule has a documented checklist and less boilerplate than today.
+- Example policies parse successfully and produce expected suppression/filtering behavior.
+- README links to the policy presets.
+- Strict CI preset fails on high/critical active findings by default when paired with documented command examples.
+
+### 9. Improve GitHub Actions integration ergonomics
+
+**Why:** Adoption should require copying one workflow and changing a path, not designing CI from scratch.
+
+**Deliverables:**
+
+- Add workflows for code scanning, PR summary, staged enforcement, and baseline cleanup under `examples/` or `.github/workflows/` as appropriate.
+- Document least-privilege permissions for each workflow.
+- Add tests that parse workflow YAML and assert key commands, permissions, and SARIF upload paths.
+
+**Acceptance:**
+
+- Example workflows avoid write permissions unless comments or code scanning explicitly require them.
+- Workflow tests catch deprecated GitHub actions or missing permissions.
+- README has a one-screen quick-start for GitHub users.
+
+## Phase 4: distribution, compatibility, and trust
+
+### 10. Prepare a stable `0.2.0` release
+
+**Why:** The project now has enough surface area that users need a clear compatibility point before broader use.
+
+**Deliverables:**
+
+- Confirm version metadata in `pyproject.toml` and `src/agent_config_linter/__init__.py`.
+- Update `CHANGELOG.md` with all roadmap changes since `0.1.0`.
+- Run `python scripts/install-smoke.py` locally and in release CI.
+- Decide whether report `schema_version` remains `0.1` or bumps for additive fields such as confidence/provenance.
+
+**Acceptance:**
+
+- Built wheel and sdist install successfully in a clean environment.
+- Release checklist is complete before tagging.
+- JSON/SARIF compatibility decisions are documented in `docs/report-stability.md`.
+
+### 11. Add compatibility test matrix
+
+**Why:** Users will run the linter on multiple Python versions and operating systems, and path/source-line logic can drift across platforms.
+
+**Deliverables:**
+
+- Expand CI to test supported Python versions from `pyproject.toml`.
+- Add OS-sensitive tests for path matching and filesystem evidence semantics where practical.
+- Keep local commands simple for contributors.
+
+**Acceptance:**
+
+- CI exercises the supported Python version range.
+- Path-matching tests cover POSIX and Windows-style paths.
+- README development instructions stay accurate.
+
+### 12. Design safe third-party rule-pack loading, but do not implement execution yet
+
+**Why:** External rule packs are useful but risky. The project needs a security design before it executes third-party code.
+
+**Deliverables:**
+
+- Write `docs/rule-packs.md` describing metadata schema, trust boundaries, versioning, and sandbox expectations.
+- Define non-executable rule-pack manifest examples if useful.
+- Document explicit non-goals for dynamic plugin execution until the model is reviewed.
+
+**Acceptance:**
+
+- The design explains how rule IDs, default severities, docs, fixtures, and report compatibility would work for rule packs.
+- The implementation still does not load arbitrary external code.
+- Future implementation tasks are small enough to execute with TDD.
 
 ## Ongoing quality bar
 
@@ -194,5 +237,7 @@ For rule or adapter changes, also update:
 
 - `tests/fixtures/regression/`
 - `tests/test_regression_fixtures.py`
+- `tests/test_config_shapes.py` when adapter behavior changes
 - `docs/rule-coverage.md`
-- `docs/rules.md` and README rule tables when rule IDs or default severities change
+- `docs/rules.md` and README rule tables when rule IDs, default severities, confidence, or remediation text change
+- `tests/fixtures/golden/` only when report-shape changes are intentional

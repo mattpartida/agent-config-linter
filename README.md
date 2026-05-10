@@ -263,9 +263,10 @@ The previous MVP roadmap is complete: policy files, baselines, staged CI gates, 
 
 Next focus areas:
 
-1. Precision and coverage: close fixture gaps for all rules, improve composite evidence paths/SARIF locations, and split broad filesystem risk from scoped write access.
-2. Real-world schema support: add fixture-backed adapters for more agent runtimes and improve policy validation/docs.
-3. Adoption and distribution: harden the first public release, improve PR-comment/chat-friendly output, and explore a lightweight rule-pack architecture.
+1. Rule-engine maturity: finish the built-in rule registry migration, add confidence annotations, and preserve original-source evidence for adapter-normalized findings.
+2. Real-world coverage expansion: add editor-agent and framework-deployment adapters plus supply-chain/network-boundary rules.
+3. Adoption and operations: improve baseline aging, policy bundles, and GitHub Actions integration ergonomics.
+4. Distribution and trust: prepare a stable `0.2.0`, expand compatibility testing, and design safe third-party rule-pack loading without executing external code yet.
 
 ## Development
 

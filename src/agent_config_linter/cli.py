@@ -22,6 +22,13 @@ CONFIDENCE_RANK = {confidence: index for index, confidence in enumerate(CONFIDEN
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 
 
+def _report_path(path):
+    """Serialize report paths as stable URI-like paths across platforms."""
+    if hasattr(path, "as_posix"):
+        return path.as_posix()
+    return str(path).replace("\\", "/")
+
+
 class ConfigValidationError(ValueError):
     def __init__(self, message, field=None):
         super().__init__(message)
@@ -746,7 +753,7 @@ def run(argv=None):
             try:
                 config = _load_config(path)
                 report = lint_config(config)
-                report["path"] = str(path)
+                report["path"] = _report_path(path)
                 if policy:
                     report = _apply_policy(report, path, policy)
                 if args.baseline:

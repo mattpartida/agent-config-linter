@@ -1,6 +1,6 @@
 import json
 import unittest
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 
 class ReportGoldenTests(unittest.TestCase):
@@ -23,6 +23,11 @@ class ReportGoldenTests(unittest.TestCase):
         self.assertEqual(json.loads(json_output), json.loads((golden_dir / "high-risk-agent.json.golden.json").read_text()))
         self.assertEqual(markdown_output, (golden_dir / "high-risk-agent.markdown.golden.md").read_text())
         self.assertEqual(json.loads(sarif_output), json.loads((golden_dir / "high-risk-agent.sarif.golden.json").read_text()))
+
+    def test_report_paths_are_serialized_with_forward_slashes(self):
+        from agent_config_linter.cli import _report_path
+
+        self.assertEqual(_report_path(PureWindowsPath("examples", "high-risk-agent.json")), "examples/high-risk-agent.json")
 
     def test_report_stability_docs_explain_update_workflow_and_schema_version(self):
         repo_root = Path(__file__).resolve().parents[1]

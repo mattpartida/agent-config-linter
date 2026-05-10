@@ -6,24 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-10
+
 ### Added
 
-- Policy files with severity overrides, disabled rules, and allowlists.
-- Baseline lifecycle tooling with generated suppressions, metadata validation, stale suppression reporting, and stale-baseline failure mode.
-- CI/developer-experience flags for staged adoption: `--min-severity` and `--fail-on`.
-- `agent-config-lint --version` for release verification.
-- Packaging metadata and trusted-publishing release automation.
-- regression fixture corpus coverage for every `ACL-*` rule, including dedicated safe/negative fixtures.
-- Roadmap documentation for shipped precision, adapter, policy-schema, and report-stability work.
-- PR-friendly `github-markdown` output, `--summary-only`, and a GitHub Actions summary example.
-- Lightweight built-in rule registry prototype for `ACL-001 shell_enabled`.
-- Release hardening docs and install smoke test from the built wheel.
-- Complete built-in rule registry metadata, finding confidence, policy `min_confidence`, and adapter source evidence provenance.
-- Cursor, Windsurf, LangGraph/LangChain, CrewAI, and AutoGen-style config-shape adapters with risky/safe fixtures.
-- Supply-chain and network-boundary rules `ACL-011` through `ACL-014` for unpinned remote tools, runtime package installation, unrestricted egress, and secret environments exposed to dangerous tools.
-- Baseline owner summaries, expired-suppression reporting, and `--fail-on-expired-baseline` for accepted-risk review gates.
-- Organization policy bundles for local development, staged CI, and strict CI under `examples/policies/`.
-- GitHub Actions adoption workflows for code scanning, PR summaries, staged enforcement, and baseline cleanup under `examples/github-actions/`.
+- Phase 1 rule-engine maturity: complete built-in `ACL-*` rule registry metadata, finding confidence, policy `min_confidence`, adapter `source_evidence_paths` provenance for SARIF/source-location consumers, and the regression fixture corpus for every built-in rule.
+- Phase 2 real-world coverage: Cursor, Windsurf, LangGraph/LangChain, CrewAI, and AutoGen-style config-shape adapters with risky/safe fixtures.
+- Phase 2 supply-chain and network-boundary rules `ACL-011` through `ACL-014` for unpinned remote tools, runtime package installation, unrestricted egress, and secret environments exposed to dangerous tools.
+- Phase 3 adoption and operations: baseline owner summaries, expired-suppression reporting, `--fail-on-expired-baseline`, organization policy bundles, and GitHub Actions adoption workflows.
+- Phase 4 distribution and trust: `0.2.0` package metadata, Python/OS compatibility CI matrix, Windows/POSIX filesystem evidence tests, non-executable rule-pack design, and roadmap status updates.
+
+### Changed
+
+- Package metadata now marks the project as beta-ready for broader testing.
+- Report `schema_version` remains `0.1` for `0.2.0` because confidence and provenance fields are additive and do not remove or rename existing JSON/SARIF keys.
 
 ## [0.1.0] - 2026-05-08
 

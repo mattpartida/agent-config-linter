@@ -7,7 +7,7 @@ class PackagingTests(unittest.TestCase):
     def test_project_metadata_is_ready_for_distribution(self):
         metadata = tomllib.loads(Path("pyproject.toml").read_text())["project"]
 
-        self.assertIn("Development Status :: 3 - Alpha", metadata["classifiers"])
+        self.assertIn("Development Status :: 4 - Beta", metadata["classifiers"])
         self.assertIn("Topic :: Security", metadata["classifiers"])
         self.assertIn("agent", metadata["keywords"])
         self.assertIn("security", metadata["keywords"])

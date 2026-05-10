@@ -24,7 +24,7 @@ Use this checklist before tagging and publishing `agent-config-linter`.
 ## Tag and publish
 
 - [ ] Commit release metadata updates.
-- [ ] Tag the release: `git tag v0.1.0`.
-- [ ] Push the tag: `git push origin v0.1.0`.
+- [ ] Tag the release: `git tag v0.2.0`.
+- [ ] Push the tag: `git push origin v0.2.0`.
 - [ ] Watch the `Release` workflow publish through PyPI trusted publishing.
 - [ ] Verify the package page and install smoke test after publication.

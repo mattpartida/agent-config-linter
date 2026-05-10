@@ -492,6 +492,24 @@ def _has_enabled_key(config, names):
     return bool(_enabled_key_paths(config, names))
 
 
+def _is_broad_filesystem_root(root):
+    normalized = str(root).strip().replace("/", "\\")
+    while "\\\\" in normalized:
+        normalized = normalized.replace("\\\\", "\\")
+    normalized_lower = normalized.lower()
+    if normalized_lower in {"/", "\\"}:
+        return True
+    normalized_root = normalized_lower.rstrip("\\")
+    broad_roots = {"~", "$home", "*", "%userprofile%", "%homedrive%", "%homepath%"}
+    if normalized_root in broad_roots:
+        return True
+    if len(normalized_root) == 2 and normalized_root[1] == ":" and normalized_root[0].isalpha():
+        return True
+    if normalized_root in {"c:\\users", "c:\\documents and settings"}:
+        return True
+    return False
+
+
 def _filesystem_access_paths(config):
     broad_paths = []
     write_paths = []
@@ -504,7 +522,7 @@ def _filesystem_access_paths(config):
         roots = value.get("roots") or value.get("paths") or value.get("allow") or value.get("allowlist") or []
         if isinstance(roots, str):
             roots = [roots]
-        if any(root in {"/", "~", "$HOME", "*"} for root in roots):
+        if any(_is_broad_filesystem_root(root) for root in roots):
             broad_paths.append(path)
         if value.get("write") is True or value.get("mode") in {"rw", "write", "read-write"}:
             write_paths.append(path)

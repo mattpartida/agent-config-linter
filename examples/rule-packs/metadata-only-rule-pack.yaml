@@ -1,0 +1,17 @@
+schema_version: rule-pack/v0
+name: metadata-only-example
+version: 0.1.0
+publisher: Example Security Team
+description: Non-executable manifest sketch for future rule-pack metadata review.
+rules:
+  - id: ORG-001
+    name: scoped-production-secret-controls
+    default_severity: high
+    confidence: high
+    title: Production secrets require scoped agent access
+    evidence: Production credential metadata is declared next to agent tool permissions.
+    remediation: Scope secrets to the minimum runtime and require approval gates.
+    docs: docs/org-001.md
+    fixtures:
+      risky: fixtures/org-001-risky.yaml
+      safe: fixtures/org-001-safe.yaml

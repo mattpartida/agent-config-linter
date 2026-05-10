@@ -238,7 +238,7 @@ Examples for local adoption are included in:
 
 ## Packaging and releases
 
-Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, run `scripts/install-smoke.py --skip-build` against the built wheel in a clean virtual environment, and publish via PyPI trusted publishing. See `CHANGELOG.md`, `SECURITY.md`, and `docs/release-checklist.md` before tagging.
+Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Version `0.2.0` is the current compatibility point; report `schema_version` remains `0.1` because confidence/provenance additions are additive. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, run `scripts/install-smoke.py --skip-build` against the built wheel in a clean virtual environment, and publish via PyPI trusted publishing. See `CHANGELOG.md`, `SECURITY.md`, `docs/report-stability.md`, and `docs/release-checklist.md` before tagging.
 
 ## Config-shape fixtures
 
@@ -284,7 +284,7 @@ These checks are intentionally conservative: they are meant to catch configs tha
 
 ## Rule IDs
 
-Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md); third-party plugin loading is intentionally not part of the current architecture.
+Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md). Third-party rule packs are only designed as non-executable metadata manifests for now; see [docs/rule-packs.md](docs/rule-packs.md).
 
 | Rule ID | Finding ID | Default severity |
 | --- | --- | --- |
@@ -332,8 +332,8 @@ Next focus areas:
 
 1. Rule-engine maturity: built-in rule registry migration, confidence annotations, and original-source evidence for adapter-normalized findings are shipped.
 2. Real-world coverage expansion: editor-agent/framework-deployment adapters and supply-chain/network-boundary rules are shipped.
-3. Adoption and operations: improve baseline aging, policy bundles, and GitHub Actions integration ergonomics.
-4. Distribution and trust: prepare a stable `0.2.0`, expand compatibility testing, and design safe third-party rule-pack loading without executing external code yet.
+3. Adoption and operations: baseline aging, policy bundles, and GitHub Actions integration ergonomics are shipped.
+4. Distribution and trust: stable `0.2.0` metadata, Python/OS compatibility testing, and manifest-only rule-pack design are shipped.
 
 ## Development
 
@@ -342,4 +342,4 @@ PYTHONPATH=src python -m unittest discover -s tests -q
 python -m compileall -q src tests
 ```
 
-CI also runs `ruff`, `compileall`, and `pytest`.
+CI runs `ruff`, `compileall`, and `pytest` on Python 3.11 and 3.12 across Ubuntu, macOS, and Windows.

@@ -29,3 +29,9 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 ## `schema_version` checklist
 
 Keep `schema_version` stable for additive fields that preserve existing consumers. Consider a version bump when a change removes or renames fields, changes severity summary semantics, changes finding identity fields, changes SARIF rule IDs, or changes baseline/policy suppression semantics.
+
+## 0.2.0 compatibility decision
+
+For the `0.2.0` release, report `schema_version` remains `0.1`. The release adds fields such as `confidence` and `source_evidence_paths`, but they are additive JSON/SARIF properties: existing keys, finding IDs, rule IDs, severity summary semantics, baseline matching, and policy suppression behavior remain compatible with `0.1` consumers.
+
+Consumers should ignore unknown additive fields unless they explicitly want to gate on confidence or prefer original-source provenance over normalized `evidence_paths`. A future schema bump is reserved for incompatible changes such as removing or renaming fields, changing finding identity keys, changing SARIF rule IDs, or changing suppression lifecycle semantics.

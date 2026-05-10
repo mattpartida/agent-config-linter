@@ -191,7 +191,11 @@ Phase 3 status: Shipped. Baseline owner/expiry reporting, policy bundles, GitHub
 
 ## Phase 4: distribution, compatibility, and trust
 
+Phase 4 status: Shipped. The `0.2.0` compatibility point is documented, CI now exercises the supported Python/OS matrix, filesystem evidence has POSIX and Windows-style path coverage, and safe third-party rule-pack loading is designed as a manifest-only trust boundary with no external code execution.
+
 ### 10. Prepare a stable `0.2.0` release
+
+**Status: Shipped.** Version metadata is aligned at `0.2.0`, the changelog summarizes roadmap changes since `0.1.0`, release CI runs the installed-wheel smoke test, and `docs/report-stability.md` documents that additive confidence/provenance fields keep report `schema_version` at `0.1`.
 
 **Why:** The project now has enough surface area that users need a clear compatibility point before broader use.
 
@@ -210,6 +214,8 @@ Phase 3 status: Shipped. Baseline owner/expiry reporting, policy bundles, GitHub
 
 ### 11. Add compatibility test matrix
 
+**Status: Shipped.** CI now runs on Python 3.11 and 3.12 across Ubuntu, macOS, and Windows, and regression tests cover POSIX and Windows-style broad filesystem roots without changing contributor-local commands.
+
 **Why:** Users will run the linter on multiple Python versions and operating systems, and path/source-line logic can drift across platforms.
 
 **Deliverables:**
@@ -225,6 +231,8 @@ Phase 3 status: Shipped. Baseline owner/expiry reporting, policy bundles, GitHub
 - README development instructions stay accurate.
 
 ### 12. Design safe third-party rule-pack loading, but do not implement execution yet
+
+**Status: Shipped.** `docs/rule-packs.md` defines manifest metadata, trust boundaries, rule identity, fixtures, compatibility expectations, and explicit non-goals for dynamic execution; `examples/rule-packs/metadata-only-rule-pack.yaml` is a non-executable manifest sketch.
 
 **Why:** External rule packs are useful but risky. The project needs a security design before it executes third-party code.
 

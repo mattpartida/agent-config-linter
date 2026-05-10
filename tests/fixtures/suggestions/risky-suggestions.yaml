@@ -1,0 +1,16 @@
+model: gpt-5
+remote_tool_sources:
+  - source: https://github.com/example/mcp-server
+package_install: true
+tools:
+  shell:
+    enabled: true
+  filesystem:
+    enabled: true
+    mode: rw
+    paths:
+      - /
+approvals:
+  shell: false
+network:
+  egress: "*"

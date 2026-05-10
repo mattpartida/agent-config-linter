@@ -304,7 +304,7 @@ Phase 5 status: Shipped. This phase made built-in and future third-party rules m
 
 ## Phase 6: repository-scale discovery and developer UX
 
-Phase 6 status: Planned. This phase should make the linter useful on real repositories where configs are scattered across hidden directories, CI workflows, examples, and framework deployment snippets.
+Phase 6 status: Shipped. This phase made the linter useful on real repositories where configs are scattered across hidden directories, CI workflows, examples, and framework deployment snippets.
 
 ### 16. Add recursive repo scanning with config-shape discovery
 
@@ -312,10 +312,10 @@ Phase 6 status: Planned. This phase should make the linter useful on real reposi
 
 **Deliverables:**
 
-- Add a repo scan mode that discovers supported config files under common paths such as `.github/workflows/`, `.cursor/`, `.windsurf/`, MCP settings, examples, and deployment directories.
-- Skip vendored/cache/build directories by default.
-- Report discovered files, ignored files, parser failures, and adapter selection.
-- Keep single-file lint behavior unchanged.
+- Add a repo scan mode that discovers supported config files under common paths such as `.github/workflows/`, `.cursor/`, `.windsurf/`, MCP settings, examples, and deployment directories. **Shipped as `--repo-scan`.**
+- Skip vendored/cache/build directories by default. **Shipped.**
+- Report discovered files, ignored files, parser failures, and adapter selection. **Shipped in `scan` diagnostics and per-file `schema.adapter`.**
+- Keep single-file lint behavior unchanged. **Shipped.**
 
 **Acceptance:**
 
@@ -329,9 +329,9 @@ Phase 6 status: Planned. This phase should make the linter useful on real reposi
 
 **Deliverables:**
 
-- Add an `explain`-style output mode or flag that expands one finding into rule intent, evidence paths, source evidence paths, confidence, remediation, and suppression guidance.
-- Link each finding to `docs/rules.md` or a generated per-rule anchor.
-- Include examples for terminal and PR-comment usage.
+- Add an `explain`-style output mode or flag that expands one finding into rule intent, evidence paths, source evidence paths, confidence, remediation, and suppression guidance. **Shipped as `--explain`.**
+- Link each finding to `docs/rules.md` or a generated per-rule anchor. **Shipped.**
+- Include examples for terminal and PR-comment usage. **Shipped in README CLI examples.**
 
 **Acceptance:**
 
@@ -345,9 +345,9 @@ Phase 6 status: Planned. This phase should make the linter useful on real reposi
 
 **Deliverables:**
 
-- Add structured remediation suggestions for selected rules, such as adding approval gates, narrowing filesystem roots, pinning tool sources, or replacing unrestricted egress with a placeholder allowlist.
-- Emit suggestions in JSON and Markdown without modifying files by default.
-- Consider a separate `--write-suggestions` artifact output, not in-place edits.
+- Add structured remediation suggestions for selected rules, such as adding approval gates, narrowing filesystem roots, pinning tool sources, or replacing unrestricted egress with a placeholder allowlist. **Shipped.**
+- Emit suggestions in JSON and Markdown without modifying files by default. **Shipped as `--suggestions`.**
+- Consider a separate `--write-suggestions` artifact output, not in-place edits. **Deferred; current suggestions are inline and never applied automatically.**
 
 **Acceptance:**
 

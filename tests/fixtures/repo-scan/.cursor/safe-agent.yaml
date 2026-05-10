@@ -1,0 +1,10 @@
+cursor:
+  agent:
+    tools:
+      filesystem:
+        enabled: true
+        mode: ro
+        paths:
+          - ./src
+    approvals:
+      shell: true

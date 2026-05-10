@@ -21,6 +21,21 @@ CONFIDENCES = ("high", "medium", "low")
 CONFIDENCE_RANK = {confidence: index for index, confidence in enumerate(CONFIDENCES)}
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
+REPO_SCAN_IGNORED_DIRS = {
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "vendor",
+}
 
 
 def _report_path(path):
@@ -146,6 +161,49 @@ def _load_policy(path):
         "allowlists": allowlists,
         "min_confidence": min_confidence,
     }
+
+
+def _relative_report_path(path, root):
+    try:
+        return _report_path(path.relative_to(root))
+    except ValueError:
+        return _report_path(path)
+
+
+def _should_ignore_repo_path(path, root):
+    try:
+        parts = path.relative_to(root).parts
+    except ValueError:
+        parts = path.parts
+    return any(part in REPO_SCAN_IGNORED_DIRS for part in parts)
+
+
+def _discover_repo_configs(root):
+    if not root.is_dir():
+        raise ValueError(f"Repo scan path must be a directory: {root}")
+    discovered = []
+    ignored_paths = []
+    root_resolved = root.resolve()
+    for child in sorted(root.rglob("*")):
+        if child.is_symlink():
+            if child.suffix.lower() in SUPPORTED_SUFFIXES:
+                ignored_paths.append(_relative_report_path(child, root))
+            continue
+        if not child.is_file():
+            continue
+        try:
+            child.resolve().relative_to(root_resolved)
+        except ValueError:
+            if child.suffix.lower() in SUPPORTED_SUFFIXES:
+                ignored_paths.append(_relative_report_path(child, root))
+            continue
+        if _should_ignore_repo_path(child, root):
+            if child.suffix.lower() in SUPPORTED_SUFFIXES:
+                ignored_paths.append(_relative_report_path(child, root))
+            continue
+        if child.suffix.lower() in SUPPORTED_SUFFIXES:
+            discovered.append(child)
+    return discovered, sorted(set(ignored_paths))
 
 
 def _expand_path(path):
@@ -407,6 +465,88 @@ def _source_line_for_evidence(path, evidence_paths):
     return 1
 
 
+def _suggestions_for_finding(finding):
+    finding_id = finding.get("id")
+    suggestions = {
+        "approval_gate_missing": {
+            "id": "require-approval-gates",
+            "title": "Require approval for dangerous actions",
+            "patch": "Set approvals.shell, approvals.exec, and other dangerous-action approvals to true before enabling agent execution.",
+        },
+        "filesystem_broad_access": {
+            "id": "narrow-filesystem-roots",
+            "title": "Narrow filesystem roots",
+            "patch": "Replace broad roots such as /, ~, $HOME, or * with project-scoped read-only paths such as ./src or ./docs.",
+        },
+        "unrestricted_network_egress": {
+            "id": "restrict-network-egress",
+            "title": "Restrict network egress",
+            "patch": "Replace wildcard egress with an explicit domain allowlist such as network.egress.domains.",
+        },
+        "unpinned_remote_tool_source": {
+            "id": "pin-remote-tool-source",
+            "title": "Pin remote tool source",
+            "patch": "Pin remote tool sources to a commit, tag, version, or digest and record the expected source.",
+        },
+        "runtime_package_install": {
+            "id": "disable-runtime-package-install",
+            "title": "Disable runtime package installation",
+            "patch": "Set package_install to false and pre-build dependencies in a reviewed environment.",
+        },
+    }
+    suggestion = suggestions.get(finding_id)
+    if not suggestion:
+        return []
+    return [{**suggestion, "review_required": True, "applied": False}]
+
+
+def _attach_suggestions(result):
+    for report in result.get("files", []):
+        for finding in report.get("findings", []):
+            suggestions = _suggestions_for_finding(finding)
+            if suggestions:
+                finding["suggestions"] = suggestions
+    return result
+
+
+def _rule_anchor(finding):
+    rule_id = finding.get("rule_id", finding["id"]).lower()
+    return f"docs/rules.md#{rule_id}"
+
+
+def _finding_matches_explain_selector(finding, selector):
+    selector = selector.lower()
+    return selector in {finding.get("rule_id", "").lower(), finding.get("id", "").lower(), finding.get("rule_name", "").lower()}
+
+
+def _build_explanations(result, selector):
+    explanations = []
+    for report in result.get("files", []):
+        for finding in report.get("findings", []):
+            if not _finding_matches_explain_selector(finding, selector):
+                continue
+            rule_id = finding.get("rule_id", finding["id"])
+            explanations.append(
+                {
+                    "path": report["path"],
+                    "rule_id": rule_id,
+                    "finding_id": finding["id"],
+                    "rule_name": finding.get("rule_name", finding["id"].replace("_", "-")),
+                    "severity": finding["severity"],
+                    "confidence": finding.get("confidence", "low"),
+                    "title": finding["title"],
+                    "intent": finding["evidence"],
+                    "remediation": finding["remediation"],
+                    "evidence_paths": finding.get("evidence_paths", []),
+                    "source_evidence_paths": finding.get("source_evidence_paths", finding.get("evidence_paths", [])),
+                    "docs": _rule_anchor(finding),
+                    "suppression_guidance": f"Use a baseline suppression for {rule_id}/{finding['id']} only after documenting owner, ticket, reason, and expiry.",
+                }
+            )
+            return explanations
+    return explanations
+
+
 def _format_markdown(result):
     lines = ["# Agent Config Linter Report", ""]
     if result["errors"]:
@@ -446,6 +586,29 @@ def _format_markdown(result):
                     )
                 )
             lines.append("")
+            suggestion_rows = [
+                (finding, suggestion)
+                for finding in findings
+                for suggestion in finding.get("suggestions", [])
+            ]
+            if suggestion_rows:
+                lines.extend([
+                    "### Review-required remediation suggestions",
+                    "",
+                    "These suggestions are not applied automatically; review before editing config files.",
+                    "",
+                    "| Rule | Suggestion | Patch guidance |",
+                    "| --- | --- | --- |",
+                ])
+                for finding, suggestion in suggestion_rows:
+                    lines.append(
+                        "| {rule_id} | {title} | {patch} |".format(
+                            rule_id=_markdown_escape(finding.get("rule_id", finding["id"])),
+                            title=_markdown_escape(suggestion["title"]),
+                            patch=_markdown_escape(suggestion["patch"]),
+                        )
+                    )
+                lines.append("")
         else:
             lines.extend(["No findings.", ""])
     return "\n".join(lines).rstrip() + "\n"
@@ -699,6 +862,9 @@ def run(argv=None):
     parser.add_argument("--min-severity", choices=SEVERITIES, help="Only include active findings at or above this severity")
     parser.add_argument("--fail-on", choices=SEVERITIES, help="Exit with code 1 when active findings meet or exceed this severity")
     parser.add_argument("--validate-rule-pack", help="Validate a non-executable rule-pack manifest and emit deterministic metadata")
+    parser.add_argument("--repo-scan", action="store_true", help="Scan repository roots with ignored-path and parser-failure diagnostics")
+    parser.add_argument("--explain", help="Emit an explanation for the first active finding matching a rule ID or finding ID")
+    parser.add_argument("--suggestions", action="store_true", help="Attach review-only remediation suggestions to selected findings")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
 
@@ -717,6 +883,8 @@ def run(argv=None):
         parser.error("the following arguments are required: paths")
 
     result = {"schema_version": "0.1", "files": [], "errors": []}
+    if args.repo_scan:
+        result["scan"] = {"discovered_files": [], "ignored_paths": [], "parser_failures": []}
     exit_code = 0
     suppressions = []
     matched_suppression_ids = set()
@@ -749,8 +917,15 @@ def run(argv=None):
 
     for raw_path in args.paths:
         input_path = Path(raw_path)
+        scan_root = None
         try:
-            config_paths = _expand_path(input_path)
+            if args.repo_scan:
+                scan_root = input_path
+                config_paths, ignored_paths = _discover_repo_configs(input_path)
+                result["scan"]["ignored_paths"].extend(ignored_paths)
+                result["scan"]["discovered_files"].extend(_relative_report_path(path, scan_root) for path in config_paths)
+            else:
+                config_paths = _expand_path(input_path)
         except OSError as exc:
             exit_code = 2
             result["errors"].append({"path": str(input_path), "message": str(exc)})
@@ -761,10 +936,11 @@ def run(argv=None):
             continue
 
         for path in config_paths:
+            report_path = _relative_report_path(path, scan_root) if scan_root else _report_path(path)
             try:
                 config = _load_config(path)
                 report = lint_config(config)
-                report["path"] = _report_path(path)
+                report["path"] = report_path
                 if policy:
                     report = _apply_policy(report, path, policy)
                 if args.baseline:
@@ -773,11 +949,22 @@ def run(argv=None):
                     report = _apply_min_severity(report, args.min_severity)
                 result["files"].append(report)
             except OSError as exc:
-                exit_code = 2
-                result["errors"].append({"path": str(path), "message": str(exc)})
+                if args.repo_scan:
+                    result["scan"]["parser_failures"].append({"path": report_path, "message": str(exc)})
+                else:
+                    exit_code = 2
+                    result["errors"].append({"path": str(path), "message": str(exc)})
             except ValueError as exc:
-                exit_code = 2
-                result["errors"].append({"path": str(path), "message": str(exc)})
+                if args.repo_scan:
+                    result["scan"]["parser_failures"].append({"path": report_path, "message": str(exc)})
+                else:
+                    exit_code = 2
+                    result["errors"].append({"path": str(path), "message": str(exc)})
+
+    if args.repo_scan:
+        result["scan"]["discovered_files"] = sorted(set(result["scan"]["discovered_files"]))
+        result["scan"]["ignored_paths"] = sorted(set(result["scan"]["ignored_paths"]))
+        result["scan"]["parser_failures"] = sorted(result["scan"]["parser_failures"], key=lambda error: error["path"])
 
     if args.baseline:
         stale = _stale_suppressions(suppressions, matched_suppression_ids)
@@ -806,6 +993,14 @@ def run(argv=None):
         except OSError as exc:
             exit_code = 2
             result["errors"].append({"path": str(baseline_path), "message": str(exc)})
+
+    if args.suggestions:
+        result = _attach_suggestions(result)
+
+    if args.explain:
+        result["explanations"] = _build_explanations(result, args.explain)
+        if not result["explanations"] and exit_code == 0:
+            exit_code = 1
 
     if args.fail_on:
         failed = _has_failure_at_threshold(result["files"], args.fail_on)

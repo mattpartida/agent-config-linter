@@ -1,0 +1,10 @@
+name: risky agent workflow
+on: [push]
+permissions: write-all
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - run: python agent.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

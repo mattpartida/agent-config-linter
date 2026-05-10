@@ -39,6 +39,9 @@ agent-config-lint path/to/config-directory --generate-baseline agent-config-lint
 agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --fail-on-stale-baseline --format json
 agent-config-lint path/to/config-directory --baseline agent-config-linter-baseline.json --fail-on-expired-baseline --format json
 agent-config-lint path/to/config-directory --min-severity medium --fail-on high --format json
+agent-config-lint --repo-scan path/to/repository --format json
+agent-config-lint path/to/agent.yaml --explain ACL-001 --format json
+agent-config-lint path/to/agent.yaml --suggestions --format markdown
 agent-config-lint --version
 ```
 
@@ -54,6 +57,9 @@ Output includes:
 - optional `baseline.stale_suppressions`/`baseline.stale_count` for baseline cleanup
 - optional `baseline.expired_suppressions`/`baseline.expired_count` and `baseline.owner_summary` for baseline review
 - optional `filtered_findings`/`filtered_summary` when `--min-severity` filters low-priority findings
+- optional `scan` diagnostics when `--repo-scan` reports discovered files, ignored paths, and parser failures separately from active findings
+- optional `explanations` when `--explain` expands one active finding into docs, evidence, remediation, and suppression guidance
+- optional review-only `suggestions` on findings when `--suggestions` is used
 - optional `exit_policy` when `--fail-on` is used for CI gating
 - `recommended_next_actions`
 
@@ -83,6 +89,9 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --generate-baseline /tmp/agent-config-linter-baseline.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --min-severity medium --fail-on high --format json
+PYTHONPATH=src python -m agent_config_linter.cli --repo-scan . --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --explain ACL-001 --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --suggestions --format markdown
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
@@ -326,13 +335,12 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP, `0.2.0` readiness, and Phase 5 precision/rule-pack foundations roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, and precision-boundary fixtures have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, and Phase 6 repository-scale/developer-UX roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, and review-only remediation suggestions have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
 Next focus areas:
 
-1. Repository-scale discovery and developer UX: recursively discover supported config shapes, add finding explanations, and produce review-only remediation suggestions.
-2. CI adoption, metrics, and governance: add trendable artifacts, policy drift checks, and hardened GitHub Actions supply-chain guidance.
-3. Release quality and ecosystem readiness: prepare a future `0.3.0`, document extension governance, and build an examples gallery for common agent stacks.
+1. CI adoption, metrics, and governance: add trendable artifacts, policy drift checks, and hardened GitHub Actions supply-chain guidance.
+2. Release quality and ecosystem readiness: prepare a future `0.3.0`, document extension governance, and build an examples gallery for common agent stacks.
 
 ## Development
 

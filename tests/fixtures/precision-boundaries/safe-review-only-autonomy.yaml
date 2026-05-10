@@ -1,0 +1,9 @@
+model: gpt-5
+autonomy:
+  enabled: true
+  mode: review_only
+tools:
+  shell:
+    enabled: true
+approvals:
+  shell: true

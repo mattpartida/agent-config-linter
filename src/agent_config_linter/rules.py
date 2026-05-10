@@ -22,6 +22,7 @@ class RuleDefinition:
     evidence: str
     remediation: str
     collect_evidence: Callable[[dict[str, Any], CollectorHelpers], list[str]]
+    match_spec: Mapping[str, Any] | None = None
 
 
 def _helper(name: str, helpers: CollectorHelpers) -> Callable[..., list[str]]:
@@ -87,6 +88,7 @@ RULE_REGISTRY = {
         evidence="Agent can run local commands",
         remediation="Require explicit approval and sandbox shell execution.",
         collect_evidence=collect_shell_evidence,
+        match_spec={"helper": "tool_paths", "names": ["node", "python", "shell", "subprocess", "terminal"]},
     ),
     "filesystem_broad_access": RuleDefinition(
         finding_id="filesystem_broad_access",
@@ -175,6 +177,7 @@ RULE_REGISTRY = {
         evidence="Model name suggests small/local/uncensored configuration",
         remediation="Use stronger models for adversarial routing or add stricter tool gates.",
         collect_evidence=collect_weak_model_evidence,
+        match_spec={"helper": "model_risk_paths", "fragments": ["3b", "7b", "abliterated", "abliteratus", "local", "no-guard", "small", "uncensored"]},
     ),
     "filesystem_write_access": RuleDefinition(
         finding_id="filesystem_write_access",

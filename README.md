@@ -284,7 +284,7 @@ These checks are intentionally conservative: they are meant to catch configs tha
 
 ## Rule IDs
 
-Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md). Third-party rule packs are only designed as non-executable metadata manifests for now; see [docs/rule-packs.md](docs/rule-packs.md).
+Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md). Third-party rule packs are validated only as non-executable metadata manifests for now; see [docs/rule-packs.md](docs/rule-packs.md).
 
 | Rule ID | Finding ID | Default severity |
 | --- | --- | --- |
@@ -326,14 +326,13 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP and `0.2.0` readiness roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, and manifest-only rule-pack design have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP, `0.2.0` readiness, and Phase 5 precision/rule-pack foundations roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, and precision-boundary fixtures have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
 Next focus areas:
 
-1. Precision and rule-pack foundations: validate non-executable manifests, migrate simple built-in predicates toward declarative match specs, and add precision-focused negative fixtures.
-2. Repository-scale discovery and developer UX: recursively discover supported config shapes, add finding explanations, and produce review-only remediation suggestions.
-3. CI adoption, metrics, and governance: add trendable artifacts, policy drift checks, and hardened GitHub Actions supply-chain guidance.
-4. Release quality and ecosystem readiness: prepare a future `0.3.0`, document extension governance, and build an examples gallery for common agent stacks.
+1. Repository-scale discovery and developer UX: recursively discover supported config shapes, add finding explanations, and produce review-only remediation suggestions.
+2. CI adoption, metrics, and governance: add trendable artifacts, policy drift checks, and hardened GitHub Actions supply-chain guidance.
+3. Release quality and ecosystem readiness: prepare a future `0.3.0`, document extension governance, and build an examples gallery for common agent stacks.
 
 ## Development
 

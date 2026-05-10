@@ -21,6 +21,10 @@ Every rule should have at least one fixture-backed example before its detection 
 | ACL-013 `unrestricted-network-egress` | Network egress allows all destinations. | `tests/fixtures/regression/risky-supply-chain-network-boundary.yaml` | `tests/fixtures/regression/safe-pinned-scoped-network.yaml` limits egress to `api.github.com`. |
 | ACL-014 `secret-env-to-dangerous-tool` | Secret/env access is exposed to shell, MCP, package-install, or outbound tools. | `tests/fixtures/regression/risky-supply-chain-network-boundary.yaml` | `tests/fixtures/regression/safe-pinned-scoped-network.yaml` lacks dangerous tools with exposed secrets. |
 
+## Precision-boundary fixture corpus
+
+`tests/fixtures/precision-boundaries/` covers Phase 5 safe-boundary examples for disabled shell tools, read-only scoped filesystem access, domain-scoped egress, public-only browser access, review-only autonomy, pinned remote tools, and secret-name metadata that is not connected to dangerous tools. See [precision-boundaries.md](precision-boundaries.md) for the guarded finding IDs and review guidance.
+
 ## Config-shape fixture corpus
 
 `examples/config-shapes/` includes risky and safe examples for Hermes, OpenClaw, MCP, GitHub Actions, Cursor, Windsurf, LangGraph/LangChain, CrewAI, and AutoGen-style snippets. Adapter tests assert both the selected `schema.adapter` and behaviorally important finding IDs so unsupported fields remain ignored until fixture-backed.

@@ -1,0 +1,13 @@
+schema_version: rule-pack/v0
+name: risky-executable-example
+version: 0.1.0
+publisher: Example Security
+rules:
+  - id: RISKY-001
+    name: attempts-to-run-code
+    default_severity: high
+    confidence: high
+    title: Attempts to run code
+    evidence: This manifest should be rejected.
+    remediation: Remove executable fields.
+    command: python risky_rule.py

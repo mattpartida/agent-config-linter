@@ -1,0 +1,8 @@
+model: gpt-5
+inputs:
+  web: false
+tools:
+  shell:
+    enabled: false
+approvals:
+  shell: true

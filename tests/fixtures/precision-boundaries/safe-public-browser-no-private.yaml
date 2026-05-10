@@ -1,0 +1,12 @@
+model: gpt-5
+inputs:
+  web: true
+tools:
+  browser:
+    enabled: true
+    private_network: false
+    localhost: false
+    allowed_domains:
+      - docs.python.org
+memory:
+  enabled: false

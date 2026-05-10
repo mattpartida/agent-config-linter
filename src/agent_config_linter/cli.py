@@ -13,6 +13,7 @@ import yaml
 
 from . import __version__
 from .linter import lint_config
+from .rule_packs import RulePackManifestError, load_rule_pack_manifest
 
 SEVERITIES = ("critical", "high", "medium", "low")
 SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
@@ -697,11 +698,21 @@ def run(argv=None):
     parser.add_argument("--fail-on-expired-baseline", action="store_true", help="Exit non-zero when baseline suppressions have passed expires_at")
     parser.add_argument("--min-severity", choices=SEVERITIES, help="Only include active findings at or above this severity")
     parser.add_argument("--fail-on", choices=SEVERITIES, help="Exit with code 1 when active findings meet or exceed this severity")
+    parser.add_argument("--validate-rule-pack", help="Validate a non-executable rule-pack manifest and emit deterministic metadata")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
 
     if args.version:
         return 0, f"agent-config-linter {__version__}\n"
+    if args.validate_rule_pack:
+        manifest_path = Path(args.validate_rule_pack)
+        try:
+            manifest = load_rule_pack_manifest(manifest_path)
+        except (OSError, RulePackManifestError) as exc:
+            result = {"schema_version": "0.1", "rule_pack": None, "errors": [{"path": _report_path(manifest_path), "message": str(exc)}]}
+            return 2, json.dumps(result, indent=2, sort_keys=True) + "\n"
+        result = {"schema_version": "0.1", "rule_pack": manifest.to_dict(), "errors": []}
+        return 0, json.dumps(result, indent=2, sort_keys=True) + "\n"
     if not args.paths:
         parser.error("the following arguments are required: paths")
 

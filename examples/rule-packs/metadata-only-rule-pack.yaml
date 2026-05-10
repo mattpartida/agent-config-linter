@@ -4,7 +4,7 @@ version: 0.1.0
 publisher: Example Security Team
 description: Non-executable manifest sketch for future rule-pack metadata review.
 rules:
-  - id: ORG-001
+  - id: EXAMPLE-001
     name: scoped-production-secret-controls
     default_severity: high
     confidence: high

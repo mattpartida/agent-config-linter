@@ -250,7 +250,7 @@ Phase 4 status: Shipped. The `0.2.0` compatibility point is documented, CI now e
 
 ## Phase 5: precision and rule-pack foundations
 
-Phase 5 status: Planned. This phase should make built-in and future third-party rules more declarative, easier to review, and safer to extend without executing external code.
+Phase 5 status: Shipped. This phase made built-in and future third-party rules more declarative, easier to review, and safer to extend without executing external code.
 
 ### 13. Build a manifest parser and validator for non-executable rule packs
 
@@ -258,10 +258,10 @@ Phase 5 status: Planned. This phase should make built-in and future third-party 
 
 **Deliverables:**
 
-- Add a `RulePackManifest` parser for local YAML/JSON manifests that validates metadata only.
-- Reject executable-looking fields such as command, entry point, module, script, hook, package installer, or dynamic import references.
-- Add CLI support to validate or inspect a manifest without running rules.
-- Keep dynamic rule execution explicitly unsupported.
+- Add a `RulePackManifest` parser for local YAML/JSON manifests that validates metadata only. **Shipped.**
+- Reject executable-looking fields such as command, entry point, module, script, hook, package installer, or dynamic import references. **Shipped.**
+- Add CLI support to validate or inspect a manifest without running rules. **Shipped as `--validate-rule-pack`.**
+- Keep dynamic rule execution explicitly unsupported. **Shipped.**
 
 **Acceptance:**
 
@@ -275,10 +275,10 @@ Phase 5 status: Planned. This phase should make built-in and future third-party 
 
 **Deliverables:**
 
-- Identify a small subset of existing simple rules suitable for declarative match specs.
-- Define a minimal internal spec for path fragments, enabled-state checks, value allowlists, and evidence path collection.
-- Migrate one or two low-risk rules while preserving exact finding IDs, severity, confidence, and evidence output.
-- Document which rules remain custom Python and why.
+- Identify a small subset of existing simple rules suitable for declarative match specs. **Shipped for `shell_enabled` and `weak_model_risk`.**
+- Define a minimal internal spec for path fragments, enabled-state checks, value allowlists, and evidence path collection. **Shipped as non-executable `match_spec` metadata.**
+- Migrate one or two low-risk rules while preserving exact finding IDs, severity, confidence, and evidence output. **Shipped.**
+- Document which rules remain custom Python and why. **Custom rule logic remains for multi-signal/cross-field detections.**
 
 **Acceptance:**
 
@@ -292,9 +292,9 @@ Phase 5 status: Planned. This phase should make built-in and future third-party 
 
 **Deliverables:**
 
-- Add negative fixtures for read-only filesystem access, domain-scoped egress, review-only autonomy, pinned remote tools, and secret names that are not exposed to dangerous tools.
-- Add a `docs/precision-boundaries.md` guide explaining why each negative fixture is safe.
-- Track false-positive boundaries in tests so future rule changes must update fixtures deliberately.
+- Add negative fixtures for read-only filesystem access, domain-scoped egress, review-only autonomy, pinned remote tools, and secret names that are not exposed to dangerous tools. **Shipped.**
+- Add a `docs/precision-boundaries.md` guide explaining why each negative fixture is safe. **Shipped.**
+- Track false-positive boundaries in tests so future rule changes must update fixtures deliberately. **Shipped.**
 
 **Acceptance:**
 

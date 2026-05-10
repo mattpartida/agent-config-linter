@@ -1,0 +1,9 @@
+model: gpt-5
+remote_tool_sources:
+  - source: https://github.com/example/mcp-server?ref=9f4c2a1
+    pinned: true
+package_install: false
+network:
+  egress:
+    domains:
+      - api.github.com

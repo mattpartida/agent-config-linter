@@ -1,0 +1,11 @@
+model: gpt-5
+tools:
+  filesystem:
+    enabled: true
+    mode: ro
+    paths:
+      - ./src
+network:
+  egress:
+    domains:
+      - api.github.com

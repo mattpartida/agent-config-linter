@@ -781,6 +781,8 @@ def _trend_path_prefix(path):
         return path_text
     if parts[0] == "":
         return parts[-1] or path_text
+    if len(parts[0]) == 2 and parts[0][1] == ":":
+        return parts[-1] or path_text
     if len(parts) == 1:
         return parts[0]
     if parts[0].startswith(".") and len(parts) >= 2:

@@ -1,0 +1,11 @@
+tools:
+  shell:
+    enabled: true
+  filesystem:
+    enabled: true
+    mode: rw
+    paths:
+      - ./workspace
+network:
+  egress: "*"
+model: gpt-5

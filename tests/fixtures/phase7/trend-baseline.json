@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1",
+  "suppressions": [
+    {
+      "path": "trend-risk.yaml",
+      "rule_id": "ACL-010",
+      "finding_id": "filesystem_write_access",
+      "reason": "accepted for trend fixture",
+      "owner": "security-team",
+      "ticket": "SEC-7",
+      "expires_at": "2099-01-01"
+    }
+  ]
+}

@@ -136,6 +136,7 @@ class Phase3AdoptionOperationsTests(unittest.TestCase):
             "pr-summary.yml",
             "staged-enforcement.yml",
             "baseline-cleanup.yml",
+            "trend-summary-artifact.yml",
         }
         self.assertEqual({path.name for path in workflow_dir.glob("*.yml")}, expected)
 

@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "policy_bundle_version": "0.1.0"
+  },
+  "covered_rules": [
+    "ACL-001",
+    "ACL-002",
+    "ACL-003",
+    "ACL-004",
+    "ACL-005",
+    "ACL-006",
+    "ACL-007",
+    "ACL-008",
+    "ACL-009",
+    "ACL-010",
+    "ACL-011",
+    "ACL-012",
+    "ACL-013"
+  ],
+  "severity_overrides": {
+    "ACL-999": "high"
+  }
+}

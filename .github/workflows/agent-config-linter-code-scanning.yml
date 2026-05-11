@@ -9,6 +9,8 @@ jobs:
   agent-config-linter:
     name: Upload agent-config-linter SARIF
     runs-on: ubuntu-latest
+    # Permission rationale: contents:read checks out the repository and
+    # security-events:write is required only to upload SARIF to GitHub code scanning.
     permissions:
       contents: read
       security-events: write

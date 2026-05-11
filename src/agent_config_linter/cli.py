@@ -14,11 +14,13 @@ import yaml
 from . import __version__
 from .linter import lint_config
 from .rule_packs import RulePackManifestError, load_rule_pack_manifest
+from .rules import RULE_REGISTRY
 
 SEVERITIES = ("critical", "high", "medium", "low")
 SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
 CONFIDENCES = ("high", "medium", "low")
 CONFIDENCE_RANK = {confidence: index for index, confidence in enumerate(CONFIDENCES)}
+POLICY_BUNDLE_VERSION = "0.2.0"
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 REPO_SCAN_IGNORED_DIRS = {
@@ -116,6 +118,8 @@ def _load_policy(path):
         raise ConfigValidationError("Policy severity_overrides must be a mapping", severity_field)
     for rule, severity in severity_overrides.items():
         field = f"{severity_field}.{rule}"
+        if not isinstance(rule, str):
+            raise ConfigValidationError("Policy severity_overrides keys must be strings", field)
         if severity not in SEVERITIES:
             raise ConfigValidationError(f"Invalid severity for {rule}: {severity}", field)
 
@@ -155,11 +159,33 @@ def _load_policy(path):
     if min_confidence is not None and min_confidence not in CONFIDENCES:
         raise ConfigValidationError(f"Invalid min_confidence: {min_confidence}", "min_confidence")
 
+    metadata = policy.get("metadata", {})
+    if metadata is None:
+        metadata = {}
+    if not isinstance(metadata, dict):
+        raise ConfigValidationError("Policy metadata must be a mapping", "metadata")
+    if "policy_bundle_version" in metadata and not isinstance(metadata["policy_bundle_version"], str):
+        raise ConfigValidationError(
+            "Policy metadata.policy_bundle_version must be a string",
+            "metadata.policy_bundle_version",
+        )
+
+    covered_rules = policy.get("covered_rules", [])
+    if covered_rules is None:
+        covered_rules = []
+    if not isinstance(covered_rules, list):
+        raise ConfigValidationError("Policy covered_rules must be a list", "covered_rules")
+    for index, rule in enumerate(covered_rules):
+        if not isinstance(rule, str):
+            raise ConfigValidationError("Policy covered_rules entries must be strings", f"covered_rules[{index}]")
+
     return {
         "severity_overrides": dict(severity_overrides),
         "disabled_rules": set(disabled_rules),
         "allowlists": allowlists,
         "min_confidence": min_confidence,
+        "metadata": dict(metadata),
+        "covered_rules": list(covered_rules),
     }
 
 
@@ -744,6 +770,123 @@ def _format_sarif(result):
     ) + "\n"
 
 
+def _increment(mapping, key, amount=1):
+    mapping[key] = mapping.get(key, 0) + amount
+
+
+def _trend_path_prefix(path):
+    path_text = str(path)
+    parts = path_text.split("/")
+    if not parts:
+        return path_text
+    if parts[0] == "":
+        return parts[-1] or path_text
+    if len(parts) == 1:
+        return parts[0]
+    if parts[0].startswith(".") and len(parts) >= 2:
+        return "/".join(parts[:2])
+    return parts[0]
+
+
+def _build_trend_summary(result):
+    trend = {
+        "schema_version": "0.1",
+        "total_files": len(result.get("files", [])),
+        "total_active_findings": 0,
+        "total_suppressed_findings": 0,
+        "counts_by_rule": {},
+        "counts_by_severity": {severity: 0 for severity in SEVERITIES},
+        "counts_by_confidence": {confidence: 0 for confidence in CONFIDENCES},
+        "counts_by_adapter": {},
+        "counts_by_path_prefix": {},
+        "baseline_state": {"active": 0, "expired": 0, "stale": 0, "suppressed": 0},
+        "counts_by_owner": {},
+    }
+    for report in result.get("files", []):
+        adapter = report.get("schema", {}).get("adapter", "generic")
+        prefix = _trend_path_prefix(report.get("path", "<unknown>"))
+        for finding in report.get("findings", []):
+            trend["total_active_findings"] += 1
+            _increment(trend["counts_by_rule"], finding.get("rule_id", finding["id"]))
+            _increment(trend["counts_by_severity"], finding["severity"])
+            _increment(trend["counts_by_confidence"], finding.get("confidence", "low"))
+            _increment(trend["counts_by_adapter"], adapter)
+            _increment(trend["counts_by_path_prefix"], prefix)
+        for finding in report.get("suppressed_findings", []) + report.get("policy_suppressed_findings", []):
+            trend["total_suppressed_findings"] += 1
+            trend["baseline_state"]["suppressed"] += 1
+            suppression = finding.get("suppression", {})
+            owner = str(suppression.get("owner") or "unowned")
+            owner_entry = trend["counts_by_owner"].setdefault(
+                owner, {"active": 0, "expired": 0, "stale": 0, "suppressed": 0}
+            )
+            owner_entry["suppressed"] += 1
+            owner_entry["active"] += 1
+            trend["baseline_state"]["active"] += 1
+    baseline = result.get("baseline", {})
+    trend["baseline_state"]["expired"] = baseline.get("expired_count", 0)
+    trend["baseline_state"]["stale"] = baseline.get("stale_count", 0)
+    for owner, summary in baseline.get("owner_summary", {}).items():
+        owner_entry = trend["counts_by_owner"].setdefault(
+            owner, {"active": 0, "expired": 0, "stale": 0, "suppressed": 0}
+        )
+        owner_entry["expired"] = summary.get("expired", 0)
+        owner_entry["stale"] = summary.get("stale", 0)
+        owner_entry["active"] = max(owner_entry["active"], summary.get("active", 0))
+    for key in ("counts_by_rule", "counts_by_adapter", "counts_by_path_prefix", "counts_by_owner"):
+        trend[key] = dict(sorted(trend[key].items()))
+    return trend
+
+
+def _policy_rule_references(policy):
+    references = []
+    for rule in policy.get("severity_overrides", {}):
+        references.append((f"severity_overrides.{rule}", rule))
+    for rule in sorted(policy.get("disabled_rules", set())):
+        references.append((f"disabled_rules.{rule}", rule))
+    for index, rule in enumerate(policy.get("allowlists", {}).get("rules", [])):
+        references.append((f"allowlists.rules[{index}]", rule))
+    for index, entry in enumerate(policy.get("allowlists", {}).get("paths", [])):
+        for key in ("rule_id", "id"):
+            if key in entry:
+                references.append((f"allowlists.paths[{index}].{key}", entry[key]))
+    for index, rule in enumerate(policy.get("covered_rules", [])):
+        references.append((f"covered_rules[{index}]", rule))
+    return references
+
+
+def _known_rule_ids():
+    return {definition.rule_id for definition in RULE_REGISTRY.values()}
+
+
+def _known_finding_ids():
+    return set(RULE_REGISTRY.keys())
+
+
+def _build_policy_drift(policy):
+    known_rule_ids = _known_rule_ids()
+    known_finding_ids = _known_finding_ids()
+    covered_rules = {rule for rule in policy.get("covered_rules", []) if isinstance(rule, str)}
+    unknown_rules = []
+    for field, rule in _policy_rule_references(policy):
+        if rule not in known_rule_ids and rule not in known_finding_ids:
+            unknown_rules.append({"field": field, "rule": rule})
+    missing_rules = sorted(known_rule_ids - covered_rules) if covered_rules else sorted(known_rule_ids)
+    metadata = policy.get("metadata", {})
+    policy_bundle_version = metadata.get("policy_bundle_version")
+    stale_fields = []
+    if policy_bundle_version != POLICY_BUNDLE_VERSION:
+        stale_fields.append("policy_bundle_version")
+    return {
+        "current_policy_bundle_version": POLICY_BUNDLE_VERSION,
+        "policy_bundle_version": policy_bundle_version,
+        "unknown_rules": sorted(unknown_rules, key=lambda entry: (entry["field"], entry["rule"])),
+        "missing_rules": missing_rules,
+        "stale_fields": stale_fields,
+        "failed": bool(unknown_rules or missing_rules or stale_fields),
+    }
+
+
 def _format_result(result, output_format, summary_only=False):
     if output_format == "json":
         return json.dumps(result, indent=2, sort_keys=True) + "\n"
@@ -865,8 +1008,13 @@ def run(argv=None):
     parser.add_argument("--repo-scan", action="store_true", help="Scan repository roots with ignored-path and parser-failure diagnostics")
     parser.add_argument("--explain", help="Emit an explanation for the first active finding matching a rule ID or finding ID")
     parser.add_argument("--suggestions", action="store_true", help="Attach review-only remediation suggestions to selected findings")
+    parser.add_argument("--trend-summary", action="store_true", help="Attach compact deterministic counts for time-series ingestion")
+    parser.add_argument("--check-policy-drift", action="store_true", help="Report unknown, missing, or stale policy bundle references")
+    parser.add_argument("--fail-on-policy-drift", action="store_true", help="Exit non-zero when policy drift is found; implies --check-policy-drift")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
+    if args.fail_on_policy_drift:
+        args.check_policy_drift = True
 
     if args.version:
         return 0, f"agent-config-linter {__version__}\n"
@@ -1007,6 +1155,24 @@ def run(argv=None):
         result["exit_policy"] = {"fail_on": args.fail_on, "failed": failed}
         if failed and exit_code == 0:
             exit_code = 1
+
+    if args.check_policy_drift:
+        if policy:
+            result["policy_drift"] = _build_policy_drift(policy)
+        else:
+            result["policy_drift"] = {
+                "current_policy_bundle_version": POLICY_BUNDLE_VERSION,
+                "policy_bundle_version": None,
+                "unknown_rules": [],
+                "missing_rules": sorted(_known_rule_ids()),
+                "stale_fields": ["policy"],
+                "failed": True,
+            }
+        if result["policy_drift"]["failed"] and args.fail_on_policy_drift and exit_code == 0:
+            exit_code = 1
+
+    if args.trend_summary:
+        result["trend_summary"] = _build_trend_summary(result)
 
     return exit_code, _format_result(result, args.format, summary_only=args.summary_only)
 

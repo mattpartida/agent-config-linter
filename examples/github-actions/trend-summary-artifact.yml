@@ -1,0 +1,35 @@
+name: Agent Config Linter Trend Summary
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trend-summary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install agent-config-linter
+        run: python -m pip install --upgrade pip agent-config-linter
+      - name: Generate trend summary
+        run: |
+          agent-config-lint . \
+            --repo-scan \
+            --policy examples/policies/staged-ci.yaml \
+            --check-policy-drift \
+            --trend-summary \
+            --format json > agent-config-linter-report.json
+      - name: Upload trend summary artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: agent-config-linter-trend-summary
+          path: agent-config-linter-report.json
+          retention-days: 30

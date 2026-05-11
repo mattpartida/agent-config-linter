@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Phase 7 CI adoption, metrics, and governance: `--trend-summary` time-series counts, `--check-policy-drift` / `--fail-on-policy-drift`, versioned example policy bundles, workflow permission governance tests, and a trend-summary artifact workflow.
 - Phase 6 repository-scale discovery and developer UX: `--repo-scan` diagnostics for discovered/ignored/parser-failed files, deterministic `--explain` output for one finding, and review-only JSON/Markdown remediation suggestions.
 - Phase 5 precision and rule-pack foundations: metadata-only `RulePackManifest` validation with `--validate-rule-pack`, executable-field rejection, non-executable `match_spec` metadata for simple built-in rules, and precision-boundary fixtures/docs for likely false-positive cases.
 - Post-`0.2.0` roadmap covering precision/rule-pack foundations, repository-scale discovery, developer UX, CI governance, and future `0.3.0` readiness.

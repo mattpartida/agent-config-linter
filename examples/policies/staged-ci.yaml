@@ -1,4 +1,21 @@
 description: Staged CI policy for rollout. It keeps medium-and-up findings visible while allowing a few documented development exceptions.
+metadata:
+  policy_bundle_version: "0.2.0"
+covered_rules:
+  - ACL-001
+  - ACL-002
+  - ACL-003
+  - ACL-004
+  - ACL-005
+  - ACL-006
+  - ACL-007
+  - ACL-008
+  - ACL-009
+  - ACL-010
+  - ACL-011
+  - ACL-012
+  - ACL-013
+  - ACL-014
 severity_overrides:
   ACL-001: medium
   weak_model_risk: low

@@ -42,6 +42,8 @@ agent-config-lint path/to/config-directory --min-severity medium --fail-on high 
 agent-config-lint --repo-scan path/to/repository --format json
 agent-config-lint path/to/agent.yaml --explain ACL-001 --format json
 agent-config-lint path/to/agent.yaml --suggestions --format markdown
+agent-config-lint --repo-scan path/to/repository --trend-summary --format json
+agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
 agent-config-lint --version
 ```
 
@@ -60,6 +62,8 @@ Output includes:
 - optional `scan` diagnostics when `--repo-scan` reports discovered files, ignored paths, and parser failures separately from active findings
 - optional `explanations` when `--explain` expands one active finding into docs, evidence, remediation, and suppression guidance
 - optional review-only `suggestions` on findings when `--suggestions` is used
+- optional `trend_summary` when `--trend-summary` emits compact counts for time-series ingestion
+- optional `policy_drift` when `--check-policy-drift` reports unknown, missing, or stale policy bundle references
 - optional `exit_policy` when `--fail-on` is used for CI gating
 - `recommended_next_actions`
 
@@ -92,6 +96,8 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli --repo-scan . --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --explain ACL-001 --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --suggestions --format markdown
+PYTHONPATH=src python -m agent_config_linter.cli --repo-scan . --trend-summary --format json
+PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
@@ -103,6 +109,7 @@ Copy one of the adoption workflows from `examples/github-actions/` and replace `
 - `examples/github-actions/pr-summary.yml`: writes a PR/job summary with read-only default permissions; comments are opt-in because they require `pull-requests: write`.
 - `examples/github-actions/staged-enforcement.yml`: runs a staged CI gate with `examples/policies/staged-ci.yaml`, `--min-severity medium`, and `--fail-on high`.
 - `examples/github-actions/baseline-cleanup.yml`: runs scheduled baseline cleanup with stale and expired suppression gates.
+- `examples/github-actions/trend-summary-artifact.yml`: uploads a compact JSON report with `trend_summary` and `policy_drift` for metrics ingestion.
 
 ## GitHub code scanning
 
@@ -174,6 +181,8 @@ Use `--policy` to adapt default findings to org-specific risk decisions while ke
 
 Invalid policy files are rejected before linting with exit code `2`. Validation errors include machine-readable field paths such as `allowlists.paths[0].rule_id`; see [docs/policy-schema.md](docs/policy-schema.md) for minimal, staged-adoption, and strict CI examples.
 
+Use `--check-policy-drift` to report policy bundle governance issues: unknown rule references, covered-rule lists that omit built-in rules, and stale `metadata.policy_bundle_version` values. Add `--fail-on-policy-drift` when CI should block policy drift independently from finding severity.
+
 ## Baselines and suppressions
 
 Use `--baseline` to suppress accepted findings while keeping an audit trail in JSON output. Baselines can be JSON, YAML, or TOML files with a `suppressions` list:
@@ -210,6 +219,14 @@ agent-config-lint configs/ --baseline agent-config-linter-baseline.json --fail-o
 See [docs/baseline-review.md](docs/baseline-review.md) for owner-review and cleanup workflows.
 
 ## CI and developer experience
+
+Use `--trend-summary` when teams need compact metrics over time. It adds deterministic counts by rule, severity, confidence, adapter, path prefix, baseline state, and owner under `trend_summary` without removing the normal JSON report:
+
+```bash
+agent-config-lint --repo-scan . --baseline agent-config-linter-baseline.json --policy examples/policies/staged-ci.yaml --check-policy-drift --trend-summary --format json > agent-config-linter-report.json
+```
+
+Archive that report with `actions/upload-artifact` or copy `examples/github-actions/trend-summary-artifact.yml` for a ready-to-edit GitHub Actions example.
 
 Use `github-markdown` plus `--summary-only` when you want a compact PR/job-summary view without noisy empty tables:
 

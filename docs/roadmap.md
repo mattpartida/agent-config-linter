@@ -357,7 +357,7 @@ Phase 6 status: Shipped. This phase made the linter useful on real repositories 
 
 ## Phase 7: CI adoption, metrics, and governance
 
-Phase 7 status: Planned. This phase should help teams operate the linter over time instead of treating it as a one-off scanner.
+Phase 7 status: Shipped. This phase helps teams operate the linter over time instead of treating it as a one-off scanner.
 
 ### 19. Add trendable summary artifacts
 
@@ -365,9 +365,9 @@ Phase 7 status: Planned. This phase should help teams operate the linter over ti
 
 **Deliverables:**
 
-- Add optional summary output designed for time-series ingestion: counts by rule, severity, confidence, adapter, path prefix, baseline state, and owner.
-- Keep the artifact stable and compact.
-- Document how to archive it in GitHub Actions.
+- Add optional summary output designed for time-series ingestion: counts by rule, severity, confidence, adapter, path prefix, baseline state, and owner. **Shipped as `--trend-summary`.**
+- Keep the artifact stable and compact. **Shipped under additive `trend_summary` JSON.**
+- Document how to archive it in GitHub Actions. **Shipped with `examples/github-actions/trend-summary-artifact.yml`.**
 
 **Acceptance:**
 
@@ -381,9 +381,9 @@ Phase 7 status: Planned. This phase should help teams operate the linter over ti
 
 **Deliverables:**
 
-- Add metadata versions to example policy bundles.
-- Report when a policy file omits known rules or references retired/unknown rules.
-- Add docs for upgrading policy bundles between releases.
+- Add metadata versions to example policy bundles. **Shipped with `metadata.policy_bundle_version`.**
+- Report when a policy file omits known rules or references retired/unknown rules. **Shipped as `policy_drift.missing_rules` and `policy_drift.unknown_rules`.**
+- Add docs for upgrading policy bundles between releases. **Shipped in policy-schema drift guidance.**
 
 **Acceptance:**
 
@@ -397,9 +397,9 @@ Phase 7 status: Planned. This phase should help teams operate the linter over ti
 
 **Deliverables:**
 
-- Decide whether project workflows and examples should pin third-party actions by major version, full SHA, or documented exception.
-- Add tests that catch deprecated or unexpectedly broad permissions.
-- Document upgrade workflow for pinned actions.
+- Decide whether project workflows and examples should pin third-party actions by major version, full SHA, or documented exception. **Shipped as major-version pins with documented permission rationale.**
+- Add tests that catch deprecated or unexpectedly broad permissions. **Shipped in workflow governance tests.**
+- Document upgrade workflow for pinned actions. **Shipped via workflow examples and policy-schema governance notes.**
 
 **Acceptance:**
 

@@ -8,6 +8,8 @@ Invalid policies fail before linting with exit code `2`. JSON output includes bo
 
 | Field | Type | Purpose |
 | --- | --- | --- |
+| `metadata.policy_bundle_version` | string | Policy bundle version expected by `--check-policy-drift`. |
+| `covered_rules` | list of stable built-in rule IDs | Declares which built-in rules the policy bundle has reviewed for drift checks. |
 | `severity_overrides` | object mapping rule/finding IDs to `critical`, `high`, `medium`, or `low` | Reclassify default severities for local policy. Alias: `severities`. |
 | `disabled_rules` | list of strings | Move matching findings into `policy_suppressed_findings`. Entries may be stable rule IDs, rule names, or finding IDs. Alias: `rule_disables`. |
 | `min_confidence` | string: `high`, `medium`, or `low` | Keep only active findings at or above the requested confidence and report lower-confidence entries under `confidence_filtered_findings`. |
@@ -102,6 +104,22 @@ Run with an exit gate:
 ```bash
 agent-config-lint configs/ --policy agent-config-linter-policy.json --fail-on high --format json
 ```
+
+## Policy drift checks
+
+Run drift checks when policies are maintained as versioned bundles:
+
+```bash
+agent-config-lint configs/ --policy examples/policies/staged-ci.yaml --check-policy-drift --fail-on-policy-drift --format json
+```
+
+`policy_drift` reports:
+
+- `unknown_rules`: policy references that do not match a built-in rule ID or finding ID.
+- `missing_rules`: built-in `ACL-*` rules absent from `covered_rules`.
+- `stale_fields`: currently `policy_bundle_version` when `metadata.policy_bundle_version` differs from the linter's expected bundle version.
+
+This gate is independent from severity gates such as `--fail-on high`, so teams can require policy-bundle hygiene even during non-blocking finding rollout.
 
 ## Validation examples
 

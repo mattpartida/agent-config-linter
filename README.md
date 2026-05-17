@@ -352,12 +352,14 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, and Phase 6 repository-scale/developer-UX roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, and review-only remediation suggestions have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, and Phase 8 release/ecosystem-readiness roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, and the examples gallery have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
-Next focus areas:
+Current release-readiness docs:
 
-1. CI adoption, metrics, and governance: add trendable artifacts, policy drift checks, and hardened GitHub Actions supply-chain guidance.
-2. Release quality and ecosystem readiness: prepare a future `0.3.0`, document extension governance, and build an examples gallery for common agent stacks.
+- [docs/release-checklist.md](docs/release-checklist.md)
+- [docs/report-stability.md](docs/report-stability.md)
+- [docs/extension-governance.md](docs/extension-governance.md)
+- [docs/examples-gallery.md](docs/examples-gallery.md)
 
 ## Development
 

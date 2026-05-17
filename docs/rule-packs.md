@@ -49,6 +49,8 @@ The manifest intentionally omits executable fields. Match predicates and rule ev
 
 Built-in rules keep `ACL-*` IDs. Third-party packs should use a namespace that cannot collide with built-ins, such as `ORG-*` or `VENDOR-*`. Rule identity should be stable across releases and include:
 
+See `docs/extension-governance.md` for namespace rules, collision handling, ownership metadata, and the process for promoting an external rule idea into the built-in catalog.
+
 - Machine-readable rule ID and rule name.
 - Default severity and confidence.
 - Human-readable evidence and remediation.

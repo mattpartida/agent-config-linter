@@ -1,0 +1,61 @@
+{
+  "schema_version": "gallery/v1",
+  "examples": [
+    {
+      "category": "local-coding-agent",
+      "label": "Hermes personal local agent",
+      "path": "examples/config-shapes/hermes-personal-local.yaml",
+      "kind": "config",
+      "expected": "safe",
+      "expected_rule_ids": []
+    },
+    {
+      "category": "ci-agent",
+      "label": "GitHub Actions risky automation agent",
+      "path": "examples/config-shapes/github-actions-agent-risky.yml",
+      "kind": "config",
+      "expected": "risky",
+      "expected_rule_ids": ["ACL-001", "ACL-014"]
+    },
+    {
+      "category": "mcp-desktop-config",
+      "label": "Claude Desktop risky MCP config",
+      "path": "examples/config-shapes/claude-desktop-risky-mcp.json",
+      "kind": "config",
+      "expected": "risky",
+      "expected_rule_ids": ["ACL-001", "ACL-014"]
+    },
+    {
+      "category": "editor-agent",
+      "label": "Cursor scoped editor agent",
+      "path": "examples/config-shapes/cursor-safe-agent-settings.json",
+      "kind": "config",
+      "expected": "safe",
+      "expected_rule_ids": []
+    },
+    {
+      "category": "framework-deployment",
+      "label": "LangGraph risky deployment",
+      "path": "examples/config-shapes/langgraph-risky-deployment.yaml",
+      "kind": "config",
+      "expected": "risky",
+      "expected_rule_ids": ["ACL-004"]
+    },
+    {
+      "category": "organization-policy-bundle",
+      "label": "Staged CI policy bundle",
+      "path": "examples/policies/staged-ci.yaml",
+      "kind": "policy",
+      "expected": "safe",
+      "expected_rule_ids": []
+    },
+    {
+      "category": "intentionally-vulnerable-demo",
+      "label": "High-risk demonstration config",
+      "path": "examples/high-risk-agent.json",
+      "kind": "config",
+      "expected": "intentionally-vulnerable",
+      "expected_rule_ids": ["ACL-001", "ACL-002", "ACL-004"]
+    }
+  ]
+}

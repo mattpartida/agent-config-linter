@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-17
+
+### Breaking changes
+
+- None. Report `schema_version` remains `0.1` for the `0.3.0` compatibility point.
+
+### Additive report fields
+
+- Phase 5-7 fields remain additive: repository scan diagnostics, explanation payloads, review-only suggestions, `trend_summary`, and policy-drift outputs do not remove or rename existing report keys.
+
+### Docs-only changes
+
+- Phase 8 release quality and ecosystem readiness: installed sdist smoke coverage, `0.3.0` release checklist updates, extension governance for future rule-pack ecosystems, and an examples gallery for common agent stacks.
+
 ### Added
 
 - Phase 7 CI adoption, metrics, and governance: `--trend-summary` time-series counts, `--check-policy-drift` / `--fail-on-policy-drift`, versioned example policy bundles, workflow permission governance tests, and a trend-summary artifact workflow.

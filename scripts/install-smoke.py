@@ -14,11 +14,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def isolated_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+    return env
+
+
 def run(command: list[str], *, cwd: Path = ROOT, env: dict[str, str] | None = None) -> str:
     completed = subprocess.run(
         command,
         cwd=cwd,
-        env=env,
+        env=env or isolated_env(),
         check=False,
         text=True,
         stdout=subprocess.PIPE,
@@ -29,11 +35,12 @@ def run(command: list[str], *, cwd: Path = ROOT, env: dict[str, str] | None = No
     return completed.stdout
 
 
-def newest_wheel() -> Path:
-    wheels = sorted((ROOT / "dist").glob("agent_config_linter-*.whl"), key=lambda path: path.stat().st_mtime)
-    if not wheels:
-        raise SystemExit("No built wheel found under dist/. Run without --skip-build to build first.")
-    return wheels[-1]
+def newest_artifact(kind: str) -> Path:
+    suffix = ".whl" if kind == "wheel" else ".tar.gz"
+    artifacts = sorted((ROOT / "dist").glob(f"agent_config_linter-*{suffix}"), key=lambda path: path.stat().st_mtime)
+    if not artifacts:
+        raise SystemExit(f"No built {kind} found under dist/. Run without --skip-build to build first.")
+    return artifacts[-1]
 
 
 def build_distribution() -> None:
@@ -63,14 +70,20 @@ def build_distribution() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--skip-build", action="store_true", help="Use the newest existing wheel in dist/ instead of running python -m build")
+    parser.add_argument("--skip-build", action="store_true", help="Use the newest existing artifact in dist/ instead of running python -m build")
+    parser.add_argument(
+        "--artifact",
+        choices=["wheel", "sdist"],
+        default="wheel",
+        help="Distribution artifact to install during the smoke test",
+    )
     args = parser.parse_args(argv)
 
     if not args.skip_build:
         shutil.rmtree(ROOT / "dist", ignore_errors=True)
         build_distribution()
 
-    wheel = newest_wheel()
+    artifact = newest_artifact(args.artifact)
     with tempfile.TemporaryDirectory(prefix="agent-config-linter-smoke-") as tmpdir:
         venv = Path(tmpdir) / "venv"
         run([sys.executable, "-m", "venv", str(venv)])
@@ -78,13 +91,13 @@ def main(argv: list[str] | None = None) -> int:
         python = venv / bin_dir / "python"
         cli = venv / bin_dir / ("agent-config-lint.exe" if os.name == "nt" else "agent-config-lint")
         run([str(python), "-m", "pip", "install", "--upgrade", "pip"])
-        run([str(python), "-m", "pip", "install", str(wheel)])
+        run([str(python), "-m", "pip", "install", str(artifact)])
         if cli.exists():
             output = run([str(cli), "--version"])
         else:
             output = run([str(python), "-m", "agent_config_linter.cli", "--version"])
 
-    print(f"Installed wheel smoke passed: {wheel.name}")
+    print(f"Installed {args.artifact} smoke passed: {artifact.name}")
     print(output.strip())
     return 0
 

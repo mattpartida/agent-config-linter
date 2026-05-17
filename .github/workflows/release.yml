@@ -29,7 +29,10 @@ jobs:
         run: python -m build
 
       - name: Install smoke test from built wheel
-        run: python scripts/install-smoke.py --skip-build
+        run: python scripts/install-smoke.py --skip-build --artifact wheel
+
+      - name: Install smoke test from built source distribution
+        run: python scripts/install-smoke.py --skip-build --artifact sdist
 
       - name: Verify trusted publishing configuration inputs
         run: |

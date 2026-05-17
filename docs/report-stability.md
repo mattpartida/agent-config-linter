@@ -35,3 +35,9 @@ Keep `schema_version` stable for additive fields that preserve existing consumer
 For the `0.2.0` release, report `schema_version` remains `0.1`. The release adds fields such as `confidence` and `source_evidence_paths`, but they are additive JSON/SARIF properties: existing keys, finding IDs, rule IDs, severity summary semantics, baseline matching, and policy suppression behavior remain compatible with `0.1` consumers.
 
 Consumers should ignore unknown additive fields unless they explicitly want to gate on confidence or prefer original-source provenance over normalized `evidence_paths`. A future schema bump is reserved for incompatible changes such as removing or renaming fields, changing finding identity keys, changing SARIF rule IDs, or changing suppression lifecycle semantics.
+
+## 0.3.0 compatibility decision
+
+For the `0.3.0` release, report `schema_version` remains `0.1`. The post-`0.2.0` roadmap adds repository scan diagnostics, explanation payloads, review-only suggestions, `trend_summary`, and policy-drift data as additive top-level or finding-adjacent fields. Existing JSON keys, SARIF rule IDs, finding identity fields, severity summary semantics, baseline matching, and policy suppression behavior remain compatible with `0.1` consumers.
+
+The `0.3.0` changelog separates breaking changes, additive report fields, and docs-only changes so automation owners can review compatibility before tagging. Consumers that do not use repo-scan diagnostics, trend artifacts, or policy-drift checks can continue ignoring unknown additive fields.

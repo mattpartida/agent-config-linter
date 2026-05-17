@@ -409,7 +409,7 @@ Phase 7 status: Shipped. This phase helps teams operate the linter over time ins
 
 ## Phase 8: release quality and ecosystem readiness
 
-Phase 8 status: Planned. This phase should prepare a future `0.3.0` release with fewer footguns and clearer ecosystem boundaries.
+Phase 8 status: Shipped. This phase prepares the `0.3.0` release with installed wheel/sdist smoke coverage, a documented compatibility decision, extension governance boundaries, and a tested examples gallery.
 
 ### 22. Prepare a stable `0.3.0` compatibility point
 
@@ -417,15 +417,15 @@ Phase 8 status: Planned. This phase should prepare a future `0.3.0` release with
 
 **Deliverables:**
 
-- Update version metadata only after the planned `0.3.0` feature set is implemented and verified.
-- Decide whether repo-scan diagnostics or trend artifacts require a `schema_version` bump.
-- Update `CHANGELOG.md`, `docs/report-stability.md`, and `docs/release-checklist.md` before tagging.
+- Update version metadata only after the planned `0.3.0` feature set is implemented and verified. **Shipped as `0.3.0`.**
+- Decide whether repo-scan diagnostics or trend artifacts require a `schema_version` bump. **Shipped: `schema_version` remains `0.1` because fields are additive.**
+- Update `CHANGELOG.md`, `docs/report-stability.md`, and `docs/release-checklist.md` before tagging. **Shipped with separate breaking/additive/docs sections and wheel/sdist smoke guidance.**
 
 **Acceptance:**
 
-- Install smoke passes from built wheel and sdist.
-- Compatibility decisions are documented before tagging.
-- The changelog separates breaking changes, additive report fields, and docs-only changes.
+- Install smoke passes from built wheel and sdist. **Shipped via `scripts/install-smoke.py --artifact wheel|sdist`.**
+- Compatibility decisions are documented before tagging. **Shipped in `docs/report-stability.md`.**
+- The changelog separates breaking changes, additive report fields, and docs-only changes. **Shipped in `CHANGELOG.md`.**
 
 ### 23. Add documented extension governance
 
@@ -433,15 +433,15 @@ Phase 8 status: Planned. This phase should prepare a future `0.3.0` release with
 
 **Deliverables:**
 
-- Document naming rules for non-`ACL-*` rule IDs.
-- Define review expectations for rule-pack examples, fixtures, severity, confidence, and remediation text.
-- Add an explicit process for promoting an external rule idea into the built-in catalog.
+- Document naming rules for non-`ACL-*` rule IDs. **Shipped in `docs/extension-governance.md`.**
+- Define review expectations for rule-pack examples, fixtures, severity, confidence, and remediation text. **Shipped in extension governance.**
+- Add an explicit process for promoting an external rule idea into the built-in catalog. **Shipped with promotion workflow and migration notes.**
 
 **Acceptance:**
 
-- `docs/rule-packs.md` distinguishes manifest validation from future rule execution.
-- Governance docs define collision handling and ownership metadata.
-- Future contributors can tell whether a rule belongs in core, a policy bundle, or a third-party pack.
+- `docs/rule-packs.md` distinguishes manifest validation from future rule execution. **Shipped with cross-link to extension governance.**
+- Governance docs define collision handling and ownership metadata. **Shipped.**
+- Future contributors can tell whether a rule belongs in core, a policy bundle, or a third-party pack. **Shipped with decision table.**
 
 ### 24. Build an examples gallery for common agent stacks
 
@@ -449,15 +449,15 @@ Phase 8 status: Planned. This phase should prepare a future `0.3.0` release with
 
 **Deliverables:**
 
-- Add a curated examples index covering local coding agents, CI agents, MCP desktop configs, editor agents, framework deployments, and organization policy bundles.
-- Label examples as safe, risky, or intentionally vulnerable.
-- Add smoke tests that lint every gallery example.
+- Add a curated examples index covering local coding agents, CI agents, MCP desktop configs, editor agents, framework deployments, and organization policy bundles. **Shipped in `examples/gallery.json` and `docs/examples-gallery.md`.**
+- Label examples as safe, risky, or intentionally vulnerable. **Shipped.**
+- Add smoke tests that lint every gallery example. **Shipped in `tests/test_phase8_release_ecosystem.py`.**
 
 **Acceptance:**
 
-- Every gallery example has a documented expected result.
-- Safe examples remain clean for guarded high/critical rules.
-- Risky examples trigger stable rule IDs without relying on brittle line numbers.
+- Every gallery example has a documented expected result. **Shipped.**
+- Safe examples remain clean for guarded high/critical rules. **Shipped through curated safe examples and gallery smoke coverage.**
+- Risky examples trigger stable rule IDs without relying on brittle line numbers. **Shipped with expected rule IDs in the machine-readable gallery.**
 
 ## Ongoing quality bar
 

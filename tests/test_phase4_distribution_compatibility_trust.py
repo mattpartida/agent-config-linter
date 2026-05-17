@@ -8,11 +8,11 @@ from agent_config_linter.linter import lint_config
 
 
 class Phase4DistributionCompatibilityTrustTests(unittest.TestCase):
-    def test_release_metadata_targets_stable_020(self):
+    def test_release_metadata_targets_stable_030(self):
         metadata = tomllib.loads(Path("pyproject.toml").read_text())["project"]
 
-        self.assertEqual(metadata["version"], "0.2.0")
-        self.assertEqual(__version__, "0.2.0")
+        self.assertEqual(metadata["version"], "0.3.0")
+        self.assertEqual(__version__, "0.3.0")
         self.assertIn("Development Status :: 4 - Beta", metadata["classifiers"])
         self.assertIn("Programming Language :: Python :: 3.12", metadata["classifiers"])
         self.assertIn("Typing :: Typed", metadata["classifiers"])

@@ -459,6 +459,63 @@ Phase 8 status: Shipped. This phase prepares the `0.3.0` release with installed 
 - Safe examples remain clean for guarded high/critical rules. **Shipped through curated safe examples and gallery smoke coverage.**
 - Risky examples trigger stable rule IDs without relying on brittle line numbers. **Shipped with expected rule IDs in the machine-readable gallery.**
 
+## Phase 9: developer discovery and integration contracts
+
+Phase 9 status: In progress. This roadmap turns the linter's existing rule/report metadata into easier-to-consume contracts for humans, wrappers, dashboards, and CI integrations.
+
+### 25. Add a machine-readable built-in rule catalog
+
+**Status: Shipped.** The CLI now supports `--list-rules` without config paths, emitting deterministic JSON or Markdown rule catalog output sorted by stable `ACL-*` rule ID.
+
+**Why:** Baseline reviewers, CI templates, wrappers, and docs generators need the rule catalog without parsing prose docs or scanning a dummy config.
+
+**Deliverables:**
+
+- Add `agent-config-lint --list-rules --format json` with `rule_catalog.count` and full built-in rule metadata. **Shipped.**
+- Add Markdown table output for quick human review. **Shipped.**
+- Include finding ID, rule name, default severity, confidence, evidence, remediation, docs anchor, and whether the rule is declarative or custom. **Shipped.**
+- Reject unsupported catalog formats with a machine-readable error instead of requiring paths. **Shipped.**
+
+**Acceptance:**
+
+- The command succeeds without config paths. **Shipped.**
+- Rule entries are sorted by stable rule ID and match `RULE_REGISTRY`. **Shipped.**
+- Tests fail if catalog shape drifts unexpectedly. **Shipped.**
+
+### 26. Publish report-schema fixture contracts
+
+**Status: Planned.**
+
+**Why:** Downstream consumers need small representative JSON/SARIF payloads and compatibility notes that clarify additive fields versus breaking changes.
+
+**Deliverables:**
+
+- Add compact fixture reports for clean, risky, policy-suppressed, baseline-suppressed, and repo-scan cases.
+- Document which top-level fields are stable consumer contracts and which are diagnostic/advisory.
+- Add tests that fixture contracts stay parseable and schema-version compatible.
+
+**Acceptance:**
+
+- Consumers can validate parsers against documented fixtures without running the scanner.
+- Fixture docs link back to `docs/report-stability.md`.
+
+### 27. Add integration manifest for wrappers and dashboards
+
+**Status: Planned.**
+
+**Why:** Editors, CI wrappers, and dashboards need a compact description of supported formats, exit codes, policy/baseline flags, and rule catalog availability.
+
+**Deliverables:**
+
+- Add a static or CLI-emitted integration manifest with supported input formats, output formats, exit-code meanings, and optional report sections.
+- Include the current package version and report schema version.
+- Test that README/docs and the manifest agree on output formats and exit codes.
+
+**Acceptance:**
+
+- Wrapper authors can discover capabilities without scraping `--help`.
+- Manifest updates are covered by tests when new output modes or gates are added.
+
 ## Ongoing quality bar
 
 Before merging roadmap work, run:

@@ -702,6 +702,74 @@ def _format_github_markdown(result, summary_only=False):
     return "\n".join(lines).rstrip() + "\n"
 
 
+
+def _rule_catalog_entries():
+    entries = []
+    for rule in sorted(RULE_REGISTRY.values(), key=lambda item: item.rule_id):
+        entries.append(
+            {
+                "rule_id": rule.rule_id,
+                "finding_id": rule.finding_id,
+                "rule_name": rule.rule_name,
+                "title": rule.title,
+                "default_severity": rule.default_severity,
+                "confidence": rule.confidence,
+                "evidence": rule.evidence,
+                "remediation": rule.remediation,
+                "docs": f"docs/rules.md#{rule.rule_id.lower()}",
+                "match_type": "declarative" if rule.match_spec else "custom",
+            }
+        )
+    return entries
+
+
+def _build_rule_catalog_result():
+    entries = _rule_catalog_entries()
+    return {
+        "schema_version": "0.1",
+        "rule_catalog": {
+            "count": len(entries),
+            "rules": entries,
+        },
+        "errors": [],
+    }
+
+
+def _format_rule_catalog_markdown(result):
+    lines = [
+        "# Agent Config Linter Rule Catalog",
+        "",
+        f"Total rules: **{result['rule_catalog']['count']}**",
+        "",
+        "| Rule ID | Finding ID | Severity | Confidence | Match | Title |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for rule in result["rule_catalog"]["rules"]:
+        lines.append(
+            "| {rule_id} | `{finding_id}` | {severity} | {confidence} | {match_type} | {title} |".format(
+                rule_id=_markdown_escape(rule["rule_id"]),
+                finding_id=_markdown_escape(rule["finding_id"]),
+                severity=_markdown_escape(rule["default_severity"]),
+                confidence=_markdown_escape(rule["confidence"]),
+                match_type=_markdown_escape(rule["match_type"]),
+                title=_markdown_escape(rule["title"]),
+            )
+        )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _format_rule_catalog(result, output_format):
+    if output_format == "json":
+        return json.dumps(result, indent=2, sort_keys=True) + "\n"
+    if output_format == "markdown":
+        return _format_rule_catalog_markdown(result)
+    error = {
+        "schema_version": "0.1",
+        "rule_catalog": None,
+        "errors": [{"path": "<rule-catalog>", "message": "--list-rules supports only json and markdown formats"}],
+    }
+    return json.dumps(error, indent=2, sort_keys=True) + "\n"
+
 def _format_sarif(result):
     rules = {}
     sarif_results = []
@@ -1013,6 +1081,7 @@ def run(argv=None):
     parser.add_argument("--trend-summary", action="store_true", help="Attach compact deterministic counts for time-series ingestion")
     parser.add_argument("--check-policy-drift", action="store_true", help="Report unknown, missing, or stale policy bundle references")
     parser.add_argument("--fail-on-policy-drift", action="store_true", help="Exit non-zero when policy drift is found; implies --check-policy-drift")
+    parser.add_argument("--list-rules", action="store_true", help="Emit the built-in rule catalog without scanning config paths")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
     if args.fail_on_policy_drift:
@@ -1020,6 +1089,11 @@ def run(argv=None):
 
     if args.version:
         return 0, f"agent-config-linter {__version__}\n"
+    if args.list_rules:
+        result = _build_rule_catalog_result()
+        if args.format not in {"json", "markdown"}:
+            return 2, _format_rule_catalog(result, args.format)
+        return 0, _format_rule_catalog(result, args.format)
     if args.validate_rule_pack:
         manifest_path = Path(args.validate_rule_pack)
         try:

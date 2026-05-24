@@ -44,6 +44,8 @@ agent-config-lint path/to/agent.yaml --explain ACL-001 --format json
 agent-config-lint path/to/agent.yaml --suggestions --format markdown
 agent-config-lint --repo-scan path/to/repository --trend-summary --format json
 agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
+agent-config-lint --list-rules --format json
+agent-config-lint --list-rules --format markdown
 agent-config-lint --version
 ```
 
@@ -64,6 +66,7 @@ Output includes:
 - optional review-only `suggestions` on findings when `--suggestions` is used
 - optional `trend_summary` when `--trend-summary` emits compact counts for time-series ingestion
 - optional `policy_drift` when `--check-policy-drift` reports unknown, missing, or stale policy bundle references
+- `rule_catalog` when `--list-rules` emits the built-in rule catalog without scanning configs
 - optional `exit_policy` when `--fail-on` is used for CI gating
 - `recommended_next_actions`
 
@@ -98,6 +101,7 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --suggestions --format markdown
 PYTHONPATH=src python -m agent_config_linter.cli --repo-scan . --trend-summary --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
+PYTHONPATH=src python -m agent_config_linter.cli --list-rules --format json
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
@@ -310,7 +314,7 @@ These checks are intentionally conservative: they are meant to catch configs tha
 
 ## Rule IDs
 
-Findings include stable rule IDs for baselines and CI integrations. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md). Third-party rule packs are validated only as non-executable metadata manifests for now; see [docs/rule-packs.md](docs/rule-packs.md).
+Findings include stable rule IDs for baselines and CI integrations. Run `agent-config-lint --list-rules --format json` for a machine-readable built-in catalog, or `--format markdown` for a table. See [docs/rules.md](docs/rules.md) for the current catalog. New built-in rules should follow the registry checklist in [docs/rule-registry.md](docs/rule-registry.md). Third-party rule packs are validated only as non-executable metadata manifests for now; see [docs/rule-packs.md](docs/rule-packs.md).
 
 | Rule ID | Finding ID | Default severity |
 | --- | --- | --- |
@@ -352,7 +356,7 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, and Phase 8 release/ecosystem-readiness roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, and the examples gallery have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, and Phase 8 release/ecosystem-readiness and Phase 9 rule-catalog discovery roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, and the examples gallery have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
 Current release-readiness docs:
 

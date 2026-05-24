@@ -55,3 +55,63 @@ Gate on severity when impact is the main concern, on confidence when false-posit
 `ACL-013` flags unrestricted egress values such as `*`, `any`, `all`, `unrestricted`, `0.0.0.0/0`, or `::/0`. Domain-scoped allowlists such as `api.github.com` are treated as constrained.
 
 `ACL-014` flags the combination of secret/environment access with dangerous tools: shell/code execution, MCP/outbound tools, runtime package installation, or unrestricted network egress. The rule is meant to catch configurations where ambient credentials could be consumed by high-impact tools.
+
+## Rule anchors
+
+These headings provide stable Markdown anchors for catalog entries, explanations, and external runbook links.
+
+### ACL-001 shell-enabled
+
+Shell execution is enabled
+
+### ACL-002 filesystem-broad-access
+
+Broad filesystem access
+
+### ACL-003 browser-private-network
+
+Browser can reach private network
+
+### ACL-004 lethal-trifecta
+
+Lethal trifecta present
+
+### ACL-005 prompt-injection-exfiltration-bridge
+
+Prompt-injection-to-exfiltration bridge
+
+### ACL-006 unattended-dangerous-tools
+
+Unattended dangerous tool use without approval gates
+
+### ACL-007 privileged-infra-control
+
+Privileged infrastructure control with credentials and network egress
+
+### ACL-008 approval-gate-missing
+
+Approval gate disabled for dangerous action
+
+### ACL-009 weak-model-risk
+
+Model may be weaker against prompt injection
+
+### ACL-010 filesystem-write-access
+
+Filesystem write access
+
+### ACL-011 unpinned-remote-tool-source
+
+Remote tool source is not pinned
+
+### ACL-012 runtime-package-install
+
+Runtime package installation is enabled
+
+### ACL-013 unrestricted-network-egress
+
+Network egress is unrestricted
+
+### ACL-014 secret-env-to-dangerous-tool
+
+Secret-bearing environment exposed to dangerous tool

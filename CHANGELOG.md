@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+
+- Phase 9 developer discovery: `--list-rules` emits the built-in rule catalog as stable JSON or Markdown without requiring config paths.
+
 ## [0.3.0] - 2026-05-17
 
 ### Breaking changes

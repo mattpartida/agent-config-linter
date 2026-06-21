@@ -46,6 +46,7 @@ agent-config-lint --repo-scan path/to/repository --trend-summary --format json
 agent-config-lint path/to/config-directory --policy agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
 agent-config-lint --list-rules --format json
 agent-config-lint --list-rules --format markdown
+agent-config-lint --integration-manifest --format json
 agent-config-lint --version
 ```
 
@@ -83,6 +84,14 @@ Formats:
 - Report output `github-markdown`: concise GitHub-flavored Markdown with stable summary and findings sections for PR comments or job summaries.
 - Report output `sarif`: GitHub code scanning compatible report.
 - `--summary-only`: emits only the concise summary for Markdown-style formats, useful for chat/CI logs.
+
+## Exit codes
+
+- `0`: scan completed and no fail-on gate triggered.
+- `1`: a fail-on gate triggered (`--fail-on`, `--fail-on-stale-baseline`, `--fail-on-expired-baseline`, `--fail-on-policy-drift`, or `--explain` found no matching finding).
+- `2`: a load, parse, policy, baseline, or unsupported-format error occurred.
+
+Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, and optional report sections programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
 
 ## Example
 
@@ -268,7 +277,7 @@ Examples for local adoption are included in:
 
 ## Packaging and releases
 
-Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Version `0.2.0` is the current compatibility point; report `schema_version` remains `0.1` because confidence/provenance additions are additive. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, run `scripts/install-smoke.py --skip-build` against the built wheel in a clean virtual environment, and publish via PyPI trusted publishing. See `CHANGELOG.md`, `SECURITY.md`, `docs/report-stability.md`, and `docs/release-checklist.md` before tagging.
+Package metadata in `pyproject.toml` includes classifiers, keywords, project URLs, and author metadata for distribution. Version `0.3.0` is the current compatibility point; report `schema_version` remains `0.1` because confidence/provenance additions are additive. Use `agent-config-lint --version` to verify installed versions. Tagged releases matching `v*` run `.github/workflows/release.yml`, build distributions with `python -m build`, run `scripts/install-smoke.py --skip-build` against the built wheel in a clean virtual environment, and publish via PyPI trusted publishing. See `CHANGELOG.md`, `SECURITY.md`, `docs/report-stability.md`, and `docs/release-checklist.md` before tagging.
 
 ## Config-shape fixtures
 
@@ -356,12 +365,13 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, and Phase 8 release/ecosystem-readiness and Phase 9 rule-catalog discovery roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, and the examples gallery have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, Phase 8 release/ecosystem-readiness, and Phase 9 developer-discovery and integration-contract roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, the machine-readable rule catalog, report-schema fixture contracts, and the integration manifest have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
 
 Current release-readiness docs:
 
 - [docs/release-checklist.md](docs/release-checklist.md)
 - [docs/report-stability.md](docs/report-stability.md)
+- [docs/report-contracts.md](docs/report-contracts.md)
 - [docs/extension-governance.md](docs/extension-governance.md)
 - [docs/examples-gallery.md](docs/examples-gallery.md)
 

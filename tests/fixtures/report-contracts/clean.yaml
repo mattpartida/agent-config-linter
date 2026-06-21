@@ -1,0 +1,3 @@
+# Clean agent contract input: review-only agent with no enabled capabilities.
+# Produces zero findings, zero signals, and risk_level=low.
+description: review-only agent with no tool access

@@ -461,7 +461,7 @@ Phase 8 status: Shipped. This phase prepares the `0.3.0` release with installed 
 
 ## Phase 9: developer discovery and integration contracts
 
-Phase 9 status: In progress. This roadmap turns the linter's existing rule/report metadata into easier-to-consume contracts for humans, wrappers, dashboards, and CI integrations.
+Phase 9 status: Shipped. This roadmap turned the linter's existing rule/report metadata into easier-to-consume contracts for humans, wrappers, dashboards, and CI integrations.
 
 ### 25. Add a machine-readable built-in rule catalog
 
@@ -484,15 +484,15 @@ Phase 9 status: In progress. This roadmap turns the linter's existing rule/repor
 
 ### 26. Publish report-schema fixture contracts
 
-**Status: Planned.**
+**Status: Shipped.** `docs/report-contracts/` publishes six deterministic fixtures (clean, risky, policy-suppressed, baseline-suppressed, repo-scan, and SARIF) with inputs under `tests/fixtures/report-contracts/`; `docs/report-contracts.md` documents stable vs diagnostic/advisory fields and links back to `docs/report-stability.md`; `tests/test_phase9_report_contracts.py` validates shape and regenerates each fixture to catch drift.
 
 **Why:** Downstream consumers need small representative JSON/SARIF payloads and compatibility notes that clarify additive fields versus breaking changes.
 
 **Deliverables:**
 
-- Add compact fixture reports for clean, risky, policy-suppressed, baseline-suppressed, and repo-scan cases.
-- Document which top-level fields are stable consumer contracts and which are diagnostic/advisory.
-- Add tests that fixture contracts stay parseable and schema-version compatible.
+- Add compact fixture reports for clean, risky, policy-suppressed, baseline-suppressed, and repo-scan cases. **Shipped in `docs/report-contracts/`.**
+- Document which top-level fields are stable consumer contracts and which are diagnostic/advisory. **Shipped in `docs/report-contracts.md`.**
+- Add tests that fixture contracts stay parseable and schema-version compatible. **Shipped as `tests/test_phase9_report_contracts.py`.**
 
 **Acceptance:**
 
@@ -501,15 +501,15 @@ Phase 9 status: In progress. This roadmap turns the linter's existing rule/repor
 
 ### 27. Add integration manifest for wrappers and dashboards
 
-**Status: Planned.**
+**Status: Shipped.** `agent-config-lint --integration-manifest --format json` emits a machine-readable manifest with package/report-schema versions, input formats, output formats, exit-code meanings, flags, and optional report sections; README documents an Exit codes section; `tests/test_phase9_integration_manifest.py` asserts the manifest agrees with README on formats and exit codes.
 
 **Why:** Editors, CI wrappers, and dashboards need a compact description of supported formats, exit codes, policy/baseline flags, and rule catalog availability.
 
 **Deliverables:**
 
-- Add a static or CLI-emitted integration manifest with supported input formats, output formats, exit-code meanings, and optional report sections.
-- Include the current package version and report schema version.
-- Test that README/docs and the manifest agree on output formats and exit codes.
+- Add a static or CLI-emitted integration manifest with supported input formats, output formats, exit-code meanings, and optional report sections. **Shipped as `--integration-manifest` (CLI-emitted JSON/Markdown).**
+- Include the current package version and report schema version. **Shipped as `package_version` and `report_schema_version`.**
+- Test that README/docs and the manifest agree on output formats and exit codes. **Shipped in `tests/test_phase9_integration_manifest.py`.**
 
 **Acceptance:**
 

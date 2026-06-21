@@ -1,0 +1,27 @@
+{
+  "errors": [],
+  "files": [
+    {
+      "findings": [],
+      "path": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/clean.yaml",
+      "recommended_next_actions": [],
+      "risk_level": "low",
+      "schema": {
+        "adapter": "generic"
+      },
+      "schema_version": "0.1",
+      "score": 0,
+      "signals": {
+        "enabled_capabilities": [],
+        "lethal_trifecta": false
+      },
+      "summary": {
+        "critical": 0,
+        "high": 0,
+        "low": 0,
+        "medium": 0
+      }
+    }
+  ],
+  "schema_version": "0.1"
+}

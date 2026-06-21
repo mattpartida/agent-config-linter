@@ -770,6 +770,102 @@ def _format_rule_catalog(result, output_format):
     }
     return json.dumps(error, indent=2, sort_keys=True) + "\n"
 
+def _build_integration_manifest():
+    """Machine-readable capability manifest for wrappers, editors, and dashboards."""
+    return {
+        "schema_version": "0.1",
+        "package_version": __version__,
+        "report_schema_version": "0.1",
+        "tool": {
+            "name": "agent-config-linter",
+            "description": "Lint autonomous-agent configs for unsafe tool and trust-boundary combinations.",
+        },
+        "inputs": {
+            "formats": ["json", "yaml", "toml"],
+            "repo_scan": True,
+        },
+        "outputs": {
+            "formats": ["json", "markdown", "github-markdown", "sarif"],
+            "rule_catalog_formats": ["json", "markdown"],
+            "integration_manifest_formats": ["json", "markdown"],
+        },
+        "exit_codes": [
+            {"code": 0, "meaning": "Scan completed and no fail-on gate triggered."},
+            {
+                "code": 1,
+                "meaning": "A fail-on gate triggered: --fail-on, --fail-on-stale-baseline, "
+                "--fail-on-expired-baseline, --fail-on-policy-drift, or --explain found no matching finding.",
+            },
+            {"code": 2, "meaning": "A load, parse, policy, baseline, or unsupported-format error occurred."},
+        ],
+        "flags": {
+            "policy": "--policy",
+            "baseline": "--baseline",
+            "min_severity": "--min-severity",
+            "fail_on": "--fail-on",
+            "repo_scan": "--repo-scan",
+            "explain": "--explain",
+            "suggestions": "--suggestions",
+            "trend_summary": "--trend-summary",
+            "check_policy_drift": "--check-policy-drift",
+            "list_rules": "--list-rules",
+            "integration_manifest": "--integration-manifest",
+        },
+        "optional_report_sections": [
+            "baseline",
+            "scan",
+            "explanations",
+            "policy_drift",
+            "policy_suppressed_findings",
+            "policy_suppressed_summary",
+            "suppressed_findings",
+            "suppressed_summary",
+            "trend_summary",
+            "suggestions",
+        ],
+    }
+
+
+def _format_integration_manifest_markdown(manifest):
+    lines = [
+        "# Agent Config Linter Integration Manifest",
+        "",
+        f"- Package version: **{manifest['package_version']}**",
+        f"- Report schema version: **{manifest['report_schema_version']}**",
+        "",
+        "## Input formats",
+        "",
+        ", ".join(f"`{fmt}`" for fmt in manifest["inputs"]["formats"]),
+        "",
+        "## Output formats",
+        "",
+        ", ".join(f"`{fmt}`" for fmt in manifest["outputs"]["formats"]),
+        "",
+        "## Exit codes",
+        "",
+        "| Code | Meaning |",
+        "| --- | --- |",
+    ]
+    for entry in manifest["exit_codes"]:
+        lines.append(f"| {entry['code']} | {entry['meaning']} |")
+    lines += ["", "## Optional report sections", ""]
+    lines.append(", ".join(f"`{section}`" for section in manifest["optional_report_sections"]))
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _format_integration_manifest(manifest, output_format):
+    if output_format == "json":
+        return json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    if output_format == "markdown":
+        return _format_integration_manifest_markdown(manifest)
+    error = {
+        "schema_version": "0.1",
+        "integration_manifest": None,
+        "errors": [{"path": "<integration-manifest>", "message": "--integration-manifest supports only json and markdown formats"}],
+    }
+    return json.dumps(error, indent=2, sort_keys=True) + "\n"
+
+
 def _format_sarif(result):
     rules = {}
     sarif_results = []
@@ -1082,6 +1178,7 @@ def run(argv=None):
     parser.add_argument("--check-policy-drift", action="store_true", help="Report unknown, missing, or stale policy bundle references")
     parser.add_argument("--fail-on-policy-drift", action="store_true", help="Exit non-zero when policy drift is found; implies --check-policy-drift")
     parser.add_argument("--list-rules", action="store_true", help="Emit the built-in rule catalog without scanning config paths")
+    parser.add_argument("--integration-manifest", action="store_true", help="Emit a machine-readable capability manifest for wrappers and dashboards")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
     if args.fail_on_policy_drift:
@@ -1094,6 +1191,11 @@ def run(argv=None):
         if args.format not in {"json", "markdown"}:
             return 2, _format_rule_catalog(result, args.format)
         return 0, _format_rule_catalog(result, args.format)
+    if args.integration_manifest:
+        manifest = _build_integration_manifest()
+        if args.format not in {"json", "markdown"}:
+            return 2, _format_integration_manifest(manifest, args.format)
+        return 0, _format_integration_manifest(manifest, args.format)
     if args.validate_rule_pack:
         manifest_path = Path(args.validate_rule_pack)
         try:

@@ -1,0 +1,78 @@
+{
+  "errors": [],
+  "files": [
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "evidence": "Filesystem roots include broad or unrestricted paths",
+          "evidence_paths": [
+            "tools.filesystem"
+          ],
+          "id": "filesystem_broad_access",
+          "remediation": "Constrain file access to project-scoped allowlists.",
+          "rule_id": "ACL-002",
+          "rule_name": "filesystem-broad-access",
+          "severity": "high",
+          "source_evidence_paths": [
+            "tools.filesystem"
+          ],
+          "title": "Broad filesystem access"
+        }
+      ],
+      "path": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/risky.yaml",
+      "policy_suppressed_findings": [
+        {
+          "confidence": "high",
+          "evidence": "Agent can run local commands",
+          "evidence_paths": [
+            "tools.shell"
+          ],
+          "id": "shell_enabled",
+          "policy": {
+            "reason": "disabled_rule"
+          },
+          "remediation": "Require explicit approval and sandbox shell execution.",
+          "rule_id": "ACL-001",
+          "rule_name": "shell-enabled",
+          "severity": "high",
+          "source_evidence_paths": [
+            "tools.shell"
+          ],
+          "title": "Shell execution is enabled"
+        }
+      ],
+      "policy_suppressed_summary": {
+        "critical": 0,
+        "high": 1,
+        "low": 0,
+        "medium": 0
+      },
+      "recommended_next_actions": [
+        "Constrain file access to project-scoped allowlists."
+      ],
+      "risk_level": "high",
+      "schema": {
+        "adapter": "generic"
+      },
+      "schema_version": "0.1",
+      "score": 15,
+      "signals": {
+        "enabled_capabilities": [
+          "code_execution",
+          "filesystem_broad_access",
+          "private_data_access",
+          "shell_enabled"
+        ],
+        "lethal_trifecta": false
+      },
+      "summary": {
+        "critical": 0,
+        "high": 1,
+        "low": 0,
+        "medium": 0
+      }
+    }
+  ],
+  "schema_version": "0.1"
+}

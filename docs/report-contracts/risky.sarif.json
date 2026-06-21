@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "runs": [
+    {
+      "results": [
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/risky.yaml"
+                },
+                "region": {
+                  "startLine": 3
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Shell execution is enabled: Agent can run local commands"
+          },
+          "properties": {
+            "confidence": "high",
+            "evidence_paths": [
+              "tools.shell"
+            ],
+            "finding_id": "shell_enabled",
+            "remediation": "Require explicit approval and sandbox shell execution.",
+            "source_evidence_paths": [
+              "tools.shell"
+            ]
+          },
+          "ruleId": "ACL-001"
+        },
+        {
+          "level": "error",
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/risky.yaml"
+                },
+                "region": {
+                  "startLine": 5
+                }
+              }
+            }
+          ],
+          "message": {
+            "text": "Broad filesystem access: Filesystem roots include broad or unrestricted paths"
+          },
+          "properties": {
+            "confidence": "high",
+            "evidence_paths": [
+              "tools.filesystem"
+            ],
+            "finding_id": "filesystem_broad_access",
+            "remediation": "Constrain file access to project-scoped allowlists.",
+            "source_evidence_paths": [
+              "tools.filesystem"
+            ]
+          },
+          "ruleId": "ACL-002"
+        }
+      ],
+      "tool": {
+        "driver": {
+          "informationUri": "https://github.com/mattpartida/agent-config-linter",
+          "name": "agent-config-linter",
+          "rules": [
+            {
+              "fullDescription": {
+                "text": "Agent can run local commands"
+              },
+              "help": {
+                "text": "Require explicit approval and sandbox shell execution."
+              },
+              "id": "ACL-001",
+              "name": "shell-enabled",
+              "properties": {
+                "confidence": "high",
+                "finding_id": "shell_enabled",
+                "severity": "high"
+              },
+              "shortDescription": {
+                "text": "Shell execution is enabled"
+              }
+            },
+            {
+              "fullDescription": {
+                "text": "Filesystem roots include broad or unrestricted paths"
+              },
+              "help": {
+                "text": "Constrain file access to project-scoped allowlists."
+              },
+              "id": "ACL-002",
+              "name": "filesystem-broad-access",
+              "properties": {
+                "confidence": "high",
+                "finding_id": "filesystem_broad_access",
+                "severity": "high"
+              },
+              "shortDescription": {
+                "text": "Broad filesystem access"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "version": "2.1.0"
+}

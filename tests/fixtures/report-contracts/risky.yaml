@@ -1,0 +1,8 @@
+# Risky agent contract input: shell enabled plus broad filesystem root.
+tools:
+  shell:
+    enabled: true
+  filesystem:
+    enabled: true
+    paths:
+      - /

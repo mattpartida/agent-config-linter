@@ -1,0 +1,11 @@
+{
+  "suppressions": [
+    {
+      "path": "*",
+      "rule_id": "ACL-001",
+      "reason": "Accepted shell access for report-contract demonstration.",
+      "owner": "security",
+      "ticket": "SEC-1"
+    }
+  ]
+}

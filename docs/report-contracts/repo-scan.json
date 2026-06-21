@@ -1,0 +1,114 @@
+{
+  "errors": [],
+  "files": [
+    {
+      "findings": [],
+      "path": ".cursor/safe-agent.yaml",
+      "recommended_next_actions": [],
+      "risk_level": "medium",
+      "schema": {
+        "adapter": "cursor"
+      },
+      "schema_version": "0.1",
+      "score": 0,
+      "signals": {
+        "enabled_capabilities": [
+          "private_data_access"
+        ],
+        "lethal_trifecta": false
+      },
+      "summary": {
+        "critical": 0,
+        "high": 0,
+        "low": 0,
+        "medium": 0
+      }
+    },
+    {
+      "findings": [
+        {
+          "confidence": "high",
+          "evidence": "Agent can run local commands",
+          "evidence_paths": [
+            "tools.shell"
+          ],
+          "id": "shell_enabled",
+          "remediation": "Require explicit approval and sandbox shell execution.",
+          "rule_id": "ACL-001",
+          "rule_name": "shell-enabled",
+          "severity": "high",
+          "source_evidence_paths": [
+            "jobs.agent.steps[0].run"
+          ],
+          "title": "Shell execution is enabled"
+        },
+        {
+          "confidence": "high",
+          "evidence": "Secret or environment variables are available to shell, MCP, package, or outbound tools",
+          "evidence_paths": [
+            "jobs.agent.steps[0].env",
+            "secrets",
+            "secrets.env",
+            "tools.shell"
+          ],
+          "id": "secret_env_to_dangerous_tool",
+          "remediation": "Do not expose broad environment secrets to dangerous tools; use scoped credentials and approval gates.",
+          "rule_id": "ACL-014",
+          "rule_name": "secret-env-to-dangerous-tool",
+          "severity": "critical",
+          "source_evidence_paths": [
+            "jobs.agent.steps[0].env",
+            "secrets",
+            "jobs.agent.steps[0].run"
+          ],
+          "title": "Secret-bearing environment exposed to dangerous tool"
+        }
+      ],
+      "path": ".github/workflows/risky-agent.yml",
+      "recommended_next_actions": [
+        "Require explicit approval and sandbox shell execution.",
+        "Do not expose broad environment secrets to dangerous tools; use scoped credentials and approval gates."
+      ],
+      "risk_level": "critical",
+      "schema": {
+        "adapter": "github_actions"
+      },
+      "schema_version": "0.1",
+      "score": 55,
+      "signals": {
+        "enabled_capabilities": [
+          "code_execution",
+          "credentials_access",
+          "private_data_access",
+          "secret_env_to_dangerous_tool",
+          "secrets_access",
+          "shell_enabled"
+        ],
+        "lethal_trifecta": false
+      },
+      "summary": {
+        "critical": 1,
+        "high": 1,
+        "low": 0,
+        "medium": 0
+      }
+    }
+  ],
+  "scan": {
+    "discovered_files": [
+      ".cursor/safe-agent.yaml",
+      ".github/workflows/risky-agent.yml",
+      "deploy/malformed-agent.yaml"
+    ],
+    "ignored_paths": [
+      "vendor/ignored-agent.yaml"
+    ],
+    "parser_failures": [
+      {
+        "message": "Invalid YAML: while parsing a flow sequence\n  in \"<unicode string>\", line 2, column 10:\n      shell: [unterminated\n             ^\nexpected ',' or ']', but got '<stream end>'\n  in \"<unicode string>\", line 3, column 1:\n    \n    ^",
+        "path": "deploy/malformed-agent.yaml"
+      }
+    ]
+  },
+  "schema_version": "0.1"
+}

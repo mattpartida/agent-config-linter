@@ -3,6 +3,24 @@
     "file_report": {
       "additionalProperties": true,
       "properties": {
+        "confidence_filtered_findings": {
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "type": "array"
+        },
+        "confidence_filtered_summary": {
+          "$ref": "#/$defs/severity_summary"
+        },
+        "filtered_findings": {
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "type": "array"
+        },
+        "filtered_summary": {
+          "$ref": "#/$defs/severity_summary"
+        },
         "findings": {
           "items": {
             "$ref": "#/$defs/finding"
@@ -85,9 +103,6 @@
         },
         "suppressed_summary": {
           "$ref": "#/$defs/severity_summary"
-        },
-        "trend_summary": {
-          "type": "object"
         }
       },
       "required": [

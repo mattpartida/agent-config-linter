@@ -51,6 +51,8 @@ Each fixture is a committed, deterministic CLI output. Inputs live under
 | `scan` | `--repo-scan` | Discovery diagnostics: `discovered_files`, `ignored_paths`, `parser_failures`. |
 | `explanations` | `--explain` | Expanded single-finding explanations. |
 | `policy_drift` | `--check-policy-drift` | `missing_rules` / `unknown_rules` drift reporting. |
+| `trend_summary` | `--trend-summary` | Compact deterministic counts for metrics ingestion. |
+| `exit_policy` | `--fail-on` | Threshold and gate result used for CI exit status. |
 
 ## Per-file fields
 
@@ -62,8 +64,10 @@ Each fixture is a committed, deterministic CLI output. Inputs live under
 **Conditional stable** (present only when relevant):
 
 `policy_suppressed_findings` / `policy_suppressed_summary` (`--policy`),
-`suppressed_findings` / `suppressed_summary` (`--baseline`), `trend_summary`
-(`--trend-summary`).
+`suppressed_findings` / `suppressed_summary` (`--baseline`),
+`filtered_findings` / `filtered_summary` (`--min-severity`), and
+`confidence_filtered_findings` / `confidence_filtered_summary` (policy
+`min_confidence`).
 
 ## Finding fields
 

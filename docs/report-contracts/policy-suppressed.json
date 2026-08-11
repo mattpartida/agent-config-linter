@@ -20,7 +20,7 @@
           "title": "Broad filesystem access"
         }
       ],
-      "path": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/risky.yaml",
+      "path": "tests/fixtures/report-contracts/risky.yaml",
       "policy_suppressed_findings": [
         {
           "confidence": "high",

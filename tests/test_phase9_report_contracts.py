@@ -16,6 +16,11 @@ CONTRACTS = ROOT / "docs" / "report-contracts"
 INPUTS = ROOT / "tests" / "fixtures" / "report-contracts"
 
 
+def _repo_path(path):
+    """Keep committed contract paths stable across checkout locations and OSes."""
+    return path.relative_to(ROOT).as_posix()
+
+
 def _read_json(name):
     return json.loads((CONTRACTS / name).read_text())
 
@@ -99,28 +104,28 @@ class ReportContractDriftTests(unittest.TestCase):
         self.assertEqual(output, expected, f"{fixture_name} drifted from current CLI output")
 
     def test_clean_fixture_matches_cli_output(self):
-        self._assert_matches("clean.json", [str(INPUTS / "clean.yaml")])
+        self._assert_matches("clean.json", [_repo_path(INPUTS / "clean.yaml")])
 
     def test_risky_fixture_matches_cli_output(self):
-        self._assert_matches("risky.json", [str(INPUTS / "risky.yaml")])
+        self._assert_matches("risky.json", [_repo_path(INPUTS / "risky.yaml")])
 
     def test_policy_suppressed_fixture_matches_cli_output(self):
         self._assert_matches(
             "policy-suppressed.json",
-            [str(INPUTS / "risky.yaml"), "--policy", str(INPUTS / "disable-shell-policy.json")],
+            [_repo_path(INPUTS / "risky.yaml"), "--policy", _repo_path(INPUTS / "disable-shell-policy.json")],
         )
 
     def test_baseline_suppressed_fixture_matches_cli_output(self):
         self._assert_matches(
             "baseline-suppressed.json",
-            [str(INPUTS / "risky.yaml"), "--baseline", str(INPUTS / "suppressions.json")],
+            [_repo_path(INPUTS / "risky.yaml"), "--baseline", _repo_path(INPUTS / "suppressions.json")],
         )
 
     def test_repo_scan_fixture_matches_cli_output(self):
         self._assert_matches("repo-scan.json", ["--repo-scan", str(ROOT / "tests" / "fixtures" / "repo-scan")])
 
     def test_sarif_fixture_matches_cli_output(self):
-        self._assert_matches("risky.sarif.json", [str(INPUTS / "risky.yaml"), "--format", "sarif"])
+        self._assert_matches("risky.sarif.json", [_repo_path(INPUTS / "risky.yaml"), "--format", "sarif"])
 
 
 if __name__ == "__main__":

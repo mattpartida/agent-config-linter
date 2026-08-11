@@ -9,7 +9,7 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/risky.yaml"
+                  "uri": "tests/fixtures/report-contracts/risky.yaml"
                 },
                 "region": {
                   "startLine": 3
@@ -39,7 +39,7 @@
             {
               "physicalLocation": {
                 "artifactLocation": {
-                  "uri": "/Users/my/agent-config-linter/tests/fixtures/report-contracts/risky.yaml"
+                  "uri": "tests/fixtures/report-contracts/risky.yaml"
                 },
                 "region": {
                   "startLine": 5

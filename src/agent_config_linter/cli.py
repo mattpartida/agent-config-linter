@@ -770,6 +770,133 @@ def _format_rule_catalog(result, output_format):
     }
     return json.dumps(error, indent=2, sort_keys=True) + "\n"
 
+
+def _build_report_schema():
+    """Return the additive JSON report contract for downstream consumers."""
+    string_array = {"type": "array", "items": {"type": "string"}}
+    severity_summary = {
+        "type": "object",
+        "required": list(SEVERITIES),
+        "properties": {severity: {"type": "integer", "minimum": 0} for severity in SEVERITIES},
+        "additionalProperties": True,
+    }
+    finding = {
+        "type": "object",
+        "required": [
+            "id",
+            "rule_id",
+            "rule_name",
+            "severity",
+            "title",
+            "evidence",
+            "evidence_paths",
+            "source_evidence_paths",
+            "remediation",
+            "confidence",
+        ],
+        "properties": {
+            "id": {"type": "string"},
+            "rule_id": {"type": "string", "pattern": "^ACL-[0-9]{3}$"},
+            "rule_name": {"type": "string"},
+            "severity": {"type": "string", "enum": list(SEVERITIES)},
+            "title": {"type": "string"},
+            "evidence": {"type": "string"},
+            "evidence_paths": string_array,
+            "source_evidence_paths": string_array,
+            "remediation": {"type": "string"},
+            "confidence": {"type": "string", "enum": list(CONFIDENCES)},
+            "policy": {"type": "object"},
+            "suppression": {"type": "object"},
+            "suggestions": {"type": "array", "items": {"type": "object"}},
+        },
+        "additionalProperties": True,
+    }
+    file_report = {
+        "type": "object",
+        "required": [
+            "path",
+            "schema_version",
+            "schema",
+            "risk_level",
+            "score",
+            "signals",
+            "summary",
+            "findings",
+            "recommended_next_actions",
+        ],
+        "properties": {
+            "path": {"type": "string"},
+            "schema_version": {"const": "0.1"},
+            "schema": {
+                "type": "object",
+                "required": ["adapter"],
+                "properties": {"adapter": {"type": "string"}},
+                "additionalProperties": True,
+            },
+            "risk_level": {"type": "string", "enum": list(SEVERITIES)},
+            "score": {"type": "integer", "minimum": 0},
+            "signals": {
+                "type": "object",
+                "required": ["enabled_capabilities", "lethal_trifecta"],
+                "properties": {
+                    "enabled_capabilities": string_array,
+                    "lethal_trifecta": {"type": "boolean"},
+                },
+                "additionalProperties": True,
+            },
+            "summary": {"$ref": "#/$defs/severity_summary"},
+            "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+            "recommended_next_actions": string_array,
+            "policy_suppressed_findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+            "policy_suppressed_summary": {"$ref": "#/$defs/severity_summary"},
+            "suppressed_findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+            "suppressed_summary": {"$ref": "#/$defs/severity_summary"},
+            "trend_summary": {"type": "object"},
+        },
+        "additionalProperties": True,
+    }
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://raw.githubusercontent.com/mattpartida/agent-config-linter/main/docs/report-schema.json",
+        "title": "agent-config-linter JSON report",
+        "description": "Additive contract for schema_version 0.1 JSON scan reports.",
+        "type": "object",
+        "required": ["schema_version", "files", "errors"],
+        "properties": {
+            "schema_version": {"const": "0.1"},
+            "files": {"type": "array", "items": {"$ref": "#/$defs/file_report"}},
+            "errors": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["path", "message"],
+                    "properties": {"path": {"type": "string"}, "message": {"type": "string"}},
+                    "additionalProperties": True,
+                },
+            },
+            "baseline": {"type": "object"},
+            "scan": {"type": "object"},
+            "explanations": {"type": "array", "items": {"type": "object"}},
+            "policy_drift": {"type": "object"},
+            "trend_summary": {"type": "object"},
+            "exit_policy": {"type": "object"},
+        },
+        "additionalProperties": True,
+        "$defs": {"finding": finding, "file_report": file_report, "severity_summary": severity_summary},
+    }
+
+
+def _format_report_schema(schema, output_format):
+    if output_format == "json":
+        return json.dumps(schema, indent=2, sort_keys=True) + "\n"
+    error = {
+        "schema_version": "0.1",
+        "report_schema": None,
+        "errors": [{"path": "<report-schema>", "message": "--report-schema supports only json format"}],
+    }
+    return json.dumps(error, indent=2, sort_keys=True) + "\n"
+
+
 def _build_integration_manifest():
     """Machine-readable capability manifest for wrappers, editors, and dashboards."""
     return {
@@ -788,6 +915,7 @@ def _build_integration_manifest():
             "formats": ["json", "markdown", "github-markdown", "sarif"],
             "rule_catalog_formats": ["json", "markdown"],
             "integration_manifest_formats": ["json", "markdown"],
+            "report_schema_formats": ["json"],
         },
         "exit_codes": [
             {"code": 0, "meaning": "Scan completed and no fail-on gate triggered."},
@@ -810,6 +938,7 @@ def _build_integration_manifest():
             "check_policy_drift": "--check-policy-drift",
             "list_rules": "--list-rules",
             "integration_manifest": "--integration-manifest",
+            "report_schema": "--report-schema",
         },
         "optional_report_sections": [
             "baseline",
@@ -1179,6 +1308,7 @@ def run(argv=None):
     parser.add_argument("--fail-on-policy-drift", action="store_true", help="Exit non-zero when policy drift is found; implies --check-policy-drift")
     parser.add_argument("--list-rules", action="store_true", help="Emit the built-in rule catalog without scanning config paths")
     parser.add_argument("--integration-manifest", action="store_true", help="Emit a machine-readable capability manifest for wrappers and dashboards")
+    parser.add_argument("--report-schema", action="store_true", help="Emit the JSON Schema for machine-readable scan reports")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
     if args.fail_on_policy_drift:
@@ -1196,6 +1326,11 @@ def run(argv=None):
         if args.format not in {"json", "markdown"}:
             return 2, _format_integration_manifest(manifest, args.format)
         return 0, _format_integration_manifest(manifest, args.format)
+    if args.report_schema:
+        schema = _build_report_schema()
+        if args.format != "json":
+            return 2, _format_report_schema(schema, args.format)
+        return 0, _format_report_schema(schema, args.format)
     if args.validate_rule_pack:
         manifest_path = Path(args.validate_rule_pack)
         try:

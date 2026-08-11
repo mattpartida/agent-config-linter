@@ -11,6 +11,13 @@ For the compatibility decisions behind these shapes, see
 remains `0.1` for the `0.3.0` release; every field below is either a stable
 contract or an explicitly additive/optional surface.
 
+The authoritative Draft 2020-12 JSON Schema is committed as
+[`docs/report-schema.json`](report-schema.json) and is also emitted by
+`agent-config-lint --report-schema --format json`. It intentionally permits
+additional properties so additive report fields remain compatible while
+requiring the stable top-level, per-file, and finding contracts documented
+below.
+
 ## Fixture index
 
 Each fixture is a committed, deterministic CLI output. Inputs live under
@@ -78,7 +85,9 @@ policy-suppressed findings), `suppression` (on baseline-suppressed findings).
 
 ## Keeping fixtures honest
 
-`tests/test_phase9_report_contracts.py` reloads each committed fixture,
+`tests/test_phase9_report_contracts.py` reloads each committed fixture, and
+`tests/test_phase10_report_schema.py` checks the schema's required contracts
+against every JSON fixture. The Phase 9 test
 validates it parses with `schema_version` `0.1`, asserts its distinguishing
 field, and **regenerates it from its documented input** to fail on drift. When a
 report-shape change is intentional, regenerate the affected fixture from its

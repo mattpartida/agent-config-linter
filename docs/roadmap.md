@@ -516,6 +516,47 @@ Phase 9 status: Shipped. This roadmap turned the linter's existing rule/report m
 - Wrapper authors can discover capabilities without scraping `--help`.
 - Manifest updates are covered by tests when new output modes or gates are added.
 
+## Phase 10: report validation and durable finding identity
+
+Phase 10 status: Active. This roadmap makes stored reports easier to validate,
+compare, and consume safely across CI runs without narrowing the additive
+`schema_version` `0.1` compatibility contract.
+
+### 28. Publish a discoverable JSON Schema for reports
+
+**Status: Shipped.** `agent-config-lint --report-schema --format json` emits a
+Draft 2020-12 schema for stable top-level, per-file, and finding fields;
+`docs/report-schema.json` publishes the same deterministic artifact.
+
+**Why:** Wrappers and agents should be able to validate report structure without
+reverse-engineering fixtures or adding the linter as a runtime dependency.
+
+**Deliverables:**
+
+- Publish the report schema as both a committed artifact and dependency-light CLI output. **Shipped.**
+- Preserve additive compatibility with `additionalProperties` while requiring stable consumer fields. **Shipped.**
+- Advertise schema discovery in the integration manifest and README. **Shipped.**
+- Check the schema's required contracts against every committed JSON report fixture. **Shipped in `tests/test_phase10_report_schema.py`.**
+
+**Acceptance:**
+
+- The CLI and committed schema are structurally identical.
+- Schema discovery succeeds without config paths and rejects non-JSON formats with a typed error.
+- Existing clean, risky, policy, baseline, and repo-scan contract fixtures satisfy required schema fields.
+
+### 29. Validate stored reports without rescanning configs
+
+**Status: Planned.** Add `--validate-report` for local JSON reports, reporting
+schema-version incompatibility and stable-field errors without executing tools,
+loading configs, or fetching remote resources.
+
+### 30. Add deterministic finding fingerprints for cross-run comparison
+
+**Status: Planned.** Add stable finding fingerprints derived from rule ID,
+normalized report path, and evidence paths; document their identity boundary and
+cover POSIX/Windows path normalization so dashboards can distinguish new,
+persisting, and resolved findings.
+
 ## Ongoing quality bar
 
 Before merging roadmap work, run:

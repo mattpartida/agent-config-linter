@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "file_report": {
+      "additionalProperties": true,
+      "properties": {
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        },
+        "policy_suppressed_findings": {
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "type": "array"
+        },
+        "policy_suppressed_summary": {
+          "$ref": "#/$defs/severity_summary"
+        },
+        "recommended_next_actions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "risk_level": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "additionalProperties": true,
+          "properties": {
+            "adapter": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "adapter"
+          ],
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "0.1"
+        },
+        "score": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "signals": {
+          "additionalProperties": true,
+          "properties": {
+            "enabled_capabilities": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "lethal_trifecta": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled_capabilities",
+            "lethal_trifecta"
+          ],
+          "type": "object"
+        },
+        "summary": {
+          "$ref": "#/$defs/severity_summary"
+        },
+        "suppressed_findings": {
+          "items": {
+            "$ref": "#/$defs/finding"
+          },
+          "type": "array"
+        },
+        "suppressed_summary": {
+          "$ref": "#/$defs/severity_summary"
+        },
+        "trend_summary": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "path",
+        "schema_version",
+        "schema",
+        "risk_level",
+        "score",
+        "signals",
+        "summary",
+        "findings",
+        "recommended_next_actions"
+      ],
+      "type": "object"
+    },
+    "finding": {
+      "additionalProperties": true,
+      "properties": {
+        "confidence": {
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ],
+          "type": "string"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "evidence_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "type": "string"
+        },
+        "policy": {
+          "type": "object"
+        },
+        "remediation": {
+          "type": "string"
+        },
+        "rule_id": {
+          "pattern": "^ACL-[0-9]{3}$",
+          "type": "string"
+        },
+        "rule_name": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "type": "string"
+        },
+        "source_evidence_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "suggestions": {
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "suppression": {
+          "type": "object"
+        },
+        "title": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "rule_id",
+        "rule_name",
+        "severity",
+        "title",
+        "evidence",
+        "evidence_paths",
+        "source_evidence_paths",
+        "remediation",
+        "confidence"
+      ],
+      "type": "object"
+    },
+    "severity_summary": {
+      "additionalProperties": true,
+      "properties": {
+        "critical": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "high": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "low": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "medium": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/mattpartida/agent-config-linter/main/docs/report-schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "description": "Additive contract for schema_version 0.1 JSON scan reports.",
+  "properties": {
+    "baseline": {
+      "type": "object"
+    },
+    "errors": {
+      "items": {
+        "additionalProperties": true,
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "message"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exit_policy": {
+      "type": "object"
+    },
+    "explanations": {
+      "items": {
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/file_report"
+      },
+      "type": "array"
+    },
+    "policy_drift": {
+      "type": "object"
+    },
+    "scan": {
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "0.1"
+    },
+    "trend_summary": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "files",
+    "errors"
+  ],
+  "title": "agent-config-linter JSON report",
+  "type": "object"
+}

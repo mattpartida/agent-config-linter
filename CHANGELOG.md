@@ -8,6 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Phase 10 report JSON Schema: `--report-schema --format json` and `docs/report-schema.json` publish the additive Draft 2020-12 contract for stable JSON report, file, and finding fields; the integration manifest advertises schema discovery.
 - Phase 9 developer discovery: `--list-rules` emits the built-in rule catalog as stable JSON or Markdown without requiring config paths.
 - Phase 9 report-schema fixture contracts: published representative JSON/SARIF payloads (clean, risky, policy-suppressed, baseline-suppressed, repo-scan) under `docs/report-contracts/` with stable-vs-diagnostic field documentation in `docs/report-contracts.md`; drift-checked by `tests/test_phase9_report_contracts.py`.
 - Phase 9 integration manifest: `--integration-manifest` emits a machine-readable capability manifest (package/report-schema versions, input/output formats, exit codes, flags, optional report sections) for wrappers, editors, and dashboards; README documents an Exit codes section, and agreement is enforced by `tests/test_phase9_integration_manifest.py`.

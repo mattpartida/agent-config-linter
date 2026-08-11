@@ -47,6 +47,7 @@ agent-config-lint path/to/config-directory --policy agent-config-linter-policy.j
 agent-config-lint --list-rules --format json
 agent-config-lint --list-rules --format markdown
 agent-config-lint --integration-manifest --format json
+agent-config-lint --report-schema --format json > agent-config-linter-report.schema.json
 agent-config-lint --version
 ```
 
@@ -73,7 +74,7 @@ Output includes:
 
 ## Report compatibility
 
-Machine-readable JSON reports include `schema_version`. Additive fields may ship without changing `schema_version`, but removing or renaming fields, changing finding identity keys, or changing suppression semantics should trigger a schema review. Golden-output tests in `tests/test_report_golden.py` guard JSON, Markdown, and SARIF report shape; see `docs/report-stability.md` before intentionally updating report output.
+Machine-readable JSON reports include `schema_version`. Additive fields may ship without changing `schema_version`, but removing or renaming fields, changing finding identity keys, or changing suppression semantics should trigger a schema review. Run `agent-config-lint --report-schema --format json` to retrieve the Draft 2020-12 JSON Schema for report `schema_version` `0.1`; the same contract is committed at [`docs/report-schema.json`](docs/report-schema.json). Golden-output tests in `tests/test_report_golden.py` guard JSON, Markdown, and SARIF report shape; see `docs/report-stability.md` before intentionally updating report output.
 
 Formats:
 
@@ -91,7 +92,7 @@ Formats:
 - `1`: a fail-on gate triggered (`--fail-on`, `--fail-on-stale-baseline`, `--fail-on-expired-baseline`, `--fail-on-policy-drift`, or `--explain` found no matching finding).
 - `2`: a load, parse, policy, baseline, or unsupported-format error occurred.
 
-Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, and optional report sections programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
+Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, optional report sections, and report-schema availability programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
 
 ## Example
 
@@ -111,6 +112,7 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli --repo-scan . --trend-summary --format json
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
 PYTHONPATH=src python -m agent_config_linter.cli --list-rules --format json
+PYTHONPATH=src python -m agent_config_linter.cli --report-schema --format json
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
@@ -365,7 +367,7 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, Phase 8 release/ecosystem-readiness, and Phase 9 developer-discovery and integration-contract roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, the machine-readable rule catalog, report-schema fixture contracts, and the integration manifest have shipped. The current roadmap now lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, Phase 8 release/ecosystem-readiness, and Phase 9 developer-discovery and integration-contract roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, the machine-readable rule catalog, report-schema fixture contracts, and the integration manifest have shipped. Phase 10 report validation and durable finding identity is active; its discoverable Draft 2020-12 report schema has shipped, with stored-report validation next. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
 
 Current release-readiness docs:
 

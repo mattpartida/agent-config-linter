@@ -48,6 +48,7 @@ agent-config-lint --list-rules --format json
 agent-config-lint --list-rules --format markdown
 agent-config-lint --integration-manifest --format json
 agent-config-lint --report-schema --format json > agent-config-linter-report.schema.json
+agent-config-lint --validate-report agent-config-linter-report.json --format json
 agent-config-lint --version
 ```
 
@@ -89,10 +90,18 @@ Formats:
 ## Exit codes
 
 - `0`: scan completed and no fail-on gate triggered.
-- `1`: a fail-on gate triggered (`--fail-on`, `--fail-on-stale-baseline`, `--fail-on-expired-baseline`, `--fail-on-policy-drift`, or `--explain` found no matching finding).
+- `1`: a fail-on gate triggered (`--fail-on`, `--fail-on-stale-baseline`, `--fail-on-expired-baseline`, `--fail-on-policy-drift`, or `--explain` found no matching finding), or stored-report contract validation failed.
 - `2`: a load, parse, policy, baseline, or unsupported-format error occurred.
 
-Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, optional report sections, and report-schema availability programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
+Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, optional report sections, report-schema availability, and stored-report validation programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
+
+Validate an archived report without rescanning source configs:
+
+```bash
+agent-config-lint --validate-report agent-config-linter-report.json --format json
+```
+
+Validation is local, dependency-light, and non-executable: it reads one JSON object, enforces the published stable fields and `schema_version`, accepts additive unknown fields, performs no config/plugin/tool execution or network access, and rejects files larger than 10 MiB. A valid report exits `0`, stable-contract mismatches exit `1`, and load/JSON/format errors exit `2`.
 
 ## Example
 
@@ -113,6 +122,7 @@ PYTHONPATH=src python -m agent_config_linter.cli --repo-scan . --trend-summary -
 PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json --policy examples/agent-config-linter-policy.json --check-policy-drift --fail-on-policy-drift --format json
 PYTHONPATH=src python -m agent_config_linter.cli --list-rules --format json
 PYTHONPATH=src python -m agent_config_linter.cli --report-schema --format json
+PYTHONPATH=src python -m agent_config_linter.cli --validate-report docs/report-contracts/risky.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 

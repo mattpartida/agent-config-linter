@@ -546,9 +546,17 @@ reverse-engineering fixtures or adding the linter as a runtime dependency.
 
 ### 29. Validate stored reports without rescanning configs
 
-**Status: Planned.** Add `--validate-report` for local JSON reports, reporting
-schema-version incompatibility and stable-field errors without executing tools,
-loading configs, or fetching remote resources.
+**Status: Shipped.** `agent-config-lint --validate-report <report.json>` validates
+stored JSON reports against the published dependency-free schema subset, reports
+deterministic JSON paths for incompatible versions and stable-field errors, and
+does not execute tools, load configs, import plugins, or fetch remote resources.
+
+**Acceptance:**
+
+- Committed clean, risky, policy, baseline, and repo-scan contracts validate without rescanning.
+- Schema mismatches return exit code `1`; load/JSON/unsupported-format errors return exit code `2`.
+- Additive unknown fields remain accepted under the `schema_version` `0.1` compatibility policy.
+- Stored reports are bounded to 10 MiB before parsing.
 
 ### 30. Add deterministic finding fingerprints for cross-run comparison
 

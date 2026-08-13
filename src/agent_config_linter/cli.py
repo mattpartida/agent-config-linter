@@ -3,7 +3,9 @@
 import argparse
 import fnmatch
 import json
+import os
 import re
+import stat
 import sys
 import tomllib
 from datetime import date
@@ -21,6 +23,7 @@ SEVERITY_RANK = {severity: index for index, severity in enumerate(SEVERITIES)}
 CONFIDENCES = ("high", "medium", "low")
 CONFIDENCE_RANK = {confidence: index for index, confidence in enumerate(CONFIDENCES)}
 POLICY_BUNDLE_VERSION = "0.2.0"
+MAX_STORED_REPORT_BYTES = 10 * 1024 * 1024
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 REPO_SCAN_IGNORED_DIRS = {
@@ -900,6 +903,135 @@ def _format_report_schema(schema, output_format):
     return json.dumps(error, indent=2, sort_keys=True) + "\n"
 
 
+def _json_type_matches(value, expected_type):
+    type_checks = {
+        "array": lambda item: isinstance(item, list),
+        "boolean": lambda item: isinstance(item, bool),
+        "integer": lambda item: isinstance(item, int) and not isinstance(item, bool),
+        "number": lambda item: isinstance(item, (int, float)) and not isinstance(item, bool),
+        "object": lambda item: isinstance(item, dict),
+        "string": lambda item: isinstance(item, str),
+    }
+    return type_checks[expected_type](value)
+
+
+def _validate_json_schema_value(value, schema, root_schema, path="$", errors=None):
+    """Validate the dependency-free subset used by the published report schema."""
+    if errors is None:
+        errors = []
+    if "$ref" in schema:
+        reference = schema["$ref"]
+        if not reference.startswith("#/$defs/"):
+            errors.append({"path": path, "message": f"unsupported schema reference {reference!r}"})
+            return errors
+        schema = root_schema["$defs"][reference.removeprefix("#/$defs/")]
+
+    if "const" in schema and value != schema["const"]:
+        errors.append({"path": path, "message": f"expected constant {schema['const']!r}"})
+        return errors
+    expected_type = schema.get("type")
+    if expected_type and not _json_type_matches(value, expected_type):
+        errors.append({"path": path, "message": f"expected {expected_type}, got {type(value).__name__}"})
+        return errors
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append({"path": path, "message": f"expected one of {schema['enum']!r}"})
+    if isinstance(value, str) and "pattern" in schema and re.search(schema["pattern"], value) is None:
+        errors.append({"path": path, "message": f"value does not match pattern {schema['pattern']!r}"})
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and "minimum" in schema and value < schema["minimum"]:
+        errors.append({"path": path, "message": f"value must be at least {schema['minimum']}"})
+    if isinstance(value, dict):
+        for name in sorted(set(schema.get("required", ())) - value.keys()):
+            errors.append({"path": f"{path}.{name}", "message": "required field is missing"})
+        properties = schema.get("properties", {})
+        for name in sorted(value.keys() & properties.keys()):
+            _validate_json_schema_value(value[name], properties[name], root_schema, f"{path}.{name}", errors)
+    if isinstance(value, list) and "items" in schema:
+        for index, item in enumerate(value):
+            _validate_json_schema_value(item, schema["items"], root_schema, f"{path}[{index}]", errors)
+    return errors
+
+
+def _validate_stored_report(report):
+    schema = _build_report_schema()
+    errors = _validate_json_schema_value(report, schema, schema)
+    return {
+        "valid": not errors,
+        "schema_version": report.get("schema_version") if isinstance(report, dict) else None,
+        "errors": errors,
+    }
+
+
+def _format_validate_report_error(path, message):
+    return json.dumps(
+        {
+            "schema_version": "0.1",
+            "report_validation": None,
+            "errors": [{"path": str(path), "message": message}],
+        },
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _reject_json_constant(value):
+    raise ValueError(f"stored report contains non-standard numeric constant {value}")
+
+
+def _json_nesting_exceeds_limit(raw, limit=100):
+    depth = 0
+    in_string = False
+    escaped = False
+    for byte in raw:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif byte == 0x5C:
+                escaped = True
+            elif byte == 0x22:
+                in_string = False
+            continue
+        if byte == 0x22:
+            in_string = True
+        elif byte in {0x5B, 0x7B}:
+            depth += 1
+            if depth > limit:
+                return True
+        elif byte in {0x5D, 0x7D}:
+            depth = max(0, depth - 1)
+    return False
+
+
+def _load_stored_report(path):
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+    descriptor = os.open(path, flags)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ValueError("stored report must be a regular file")
+        chunks = []
+        remaining = MAX_STORED_REPORT_BYTES + 1
+        while remaining:
+            chunk = os.read(descriptor, remaining)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+    finally:
+        os.close(descriptor)
+    if len(raw) > MAX_STORED_REPORT_BYTES:
+        raise ValueError("stored report exceeds the 10 MiB validation limit")
+    if _json_nesting_exceeds_limit(raw):
+        raise ValueError("stored report JSON nesting exceeds the limit of 100")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError("stored report must be UTF-8 JSON") from exc
+    try:
+        return json.loads(text, parse_constant=_reject_json_constant)
+    except RecursionError as exc:
+        raise ValueError("stored report JSON nesting is too deep") from exc
+
+
 def _build_integration_manifest():
     """Machine-readable capability manifest for wrappers, editors, and dashboards."""
     return {
@@ -912,6 +1044,7 @@ def _build_integration_manifest():
         },
         "inputs": {
             "formats": ["json", "yaml", "toml"],
+            "stored_report_formats": ["json"],
             "repo_scan": True,
         },
         "outputs": {
@@ -925,7 +1058,8 @@ def _build_integration_manifest():
             {
                 "code": 1,
                 "meaning": "A fail-on gate triggered: --fail-on, --fail-on-stale-baseline, "
-                "--fail-on-expired-baseline, --fail-on-policy-drift, or --explain found no matching finding.",
+                "--fail-on-expired-baseline, --fail-on-policy-drift, --explain found no matching finding, "
+                "or stored-report contract validation failed.",
             },
             {"code": 2, "meaning": "A load, parse, policy, baseline, or unsupported-format error occurred."},
         ],
@@ -942,6 +1076,7 @@ def _build_integration_manifest():
             "list_rules": "--list-rules",
             "integration_manifest": "--integration-manifest",
             "report_schema": "--report-schema",
+            "validate_report": "--validate-report",
         },
         "optional_report_sections": [
             "baseline",
@@ -1316,6 +1451,7 @@ def run(argv=None):
     parser.add_argument("--list-rules", action="store_true", help="Emit the built-in rule catalog without scanning config paths")
     parser.add_argument("--integration-manifest", action="store_true", help="Emit a machine-readable capability manifest for wrappers and dashboards")
     parser.add_argument("--report-schema", action="store_true", help="Emit the JSON Schema for machine-readable scan reports")
+    parser.add_argument("--validate-report", help="Validate a stored JSON report without rescanning configs")
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
     if args.fail_on_policy_drift:
@@ -1338,6 +1474,21 @@ def run(argv=None):
         if args.format != "json":
             return 2, _format_report_schema(schema, args.format)
         return 0, _format_report_schema(schema, args.format)
+    if args.validate_report:
+        report_path = Path(args.validate_report)
+        if args.format != "json":
+            return 2, _format_validate_report_error("<validate-report>", "--validate-report supports only json format")
+        try:
+            report = _load_stored_report(report_path)
+        except json.JSONDecodeError as exc:
+            return 2, _format_validate_report_error(report_path, f"stored report must contain valid JSON: {exc.msg}")
+        except (OSError, ValueError) as exc:
+            return 2, _format_validate_report_error(report_path, str(exc))
+        if not isinstance(report, dict):
+            return 2, _format_validate_report_error(report_path, "stored report must be a JSON object")
+        validation = _validate_stored_report(report)
+        result = {"schema_version": "0.1", "report_validation": validation, "errors": []}
+        return (0 if validation["valid"] else 1), json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.validate_rule_pack:
         manifest_path = Path(args.validate_rule_pack)
         try:

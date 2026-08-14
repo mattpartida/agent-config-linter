@@ -20,12 +20,16 @@
           "message": {
             "text": "Shell execution is enabled: Agent can run local commands"
           },
+          "partialFingerprints": {
+            "agentConfigLinter/v1": "sha256:bc633d09d711579bb33a4dae911d4def31ffc0c705848c47a7d9b7fd375d2e63"
+          },
           "properties": {
             "confidence": "high",
             "evidence_paths": [
               "tools.shell"
             ],
             "finding_id": "shell_enabled",
+            "fingerprint": "sha256:bc633d09d711579bb33a4dae911d4def31ffc0c705848c47a7d9b7fd375d2e63",
             "remediation": "Require explicit approval and sandbox shell execution.",
             "source_evidence_paths": [
               "tools.shell"
@@ -50,12 +54,16 @@
           "message": {
             "text": "Broad filesystem access: Filesystem roots include broad or unrestricted paths"
           },
+          "partialFingerprints": {
+            "agentConfigLinter/v1": "sha256:2ed6a8a42137c5b4dcef81cfe56c417ec28475d033104bd6d4330e84f4da82eb"
+          },
           "properties": {
             "confidence": "high",
             "evidence_paths": [
               "tools.filesystem"
             ],
             "finding_id": "filesystem_broad_access",
+            "fingerprint": "sha256:2ed6a8a42137c5b4dcef81cfe56c417ec28475d033104bd6d4330e84f4da82eb",
             "remediation": "Constrain file access to project-scoped allowlists.",
             "source_evidence_paths": [
               "tools.filesystem"

@@ -36,6 +36,30 @@ For the `0.2.0` release, report `schema_version` remains `0.1`. The release adds
 
 Consumers should ignore unknown additive fields unless they explicitly want to gate on confidence or prefer original-source provenance over normalized `evidence_paths`. A future schema bump is reserved for incompatible changes such as removing or renaming fields, changing finding identity keys, changing SARIF rule IDs, or changing suppression lifecycle semantics.
 
+## Finding fingerprint identity
+
+Every newly generated JSON finding and SARIF result includes an additive
+`fingerprint` in `sha256:<lowercase-hex>` form. SARIF publishes the same value
+under both `properties.fingerprint` and the standard
+`partialFingerprints["agentConfigLinter/v1"]` map. Its identity boundary is exactly
+the rule ID, normalized report path, and sorted unique evidence paths. The
+canonical payload is UTF-8 JSON with sorted keys and compact separators before
+SHA-256 hashing.
+
+Report paths are normalized lexically: backslashes become forward slashes,
+redundant `.` path segments are removed, Windows drive-relative and UNC roots
+are preserved, and uppercase Windows drive letters are lowercased. Paths are
+not resolved against the filesystem. Evidence-path order
+and duplicates do not affect identity; changing the rule, report path, or
+evidence-path set does. Severity, confidence, remediation text, source line,
+adapter name, and suppression state are intentionally excluded so the same
+finding persists across presentation and policy changes.
+
+The field is additive and optional in the published `0.1` JSON Schema so stored
+pre-fingerprint reports remain valid. Consumers may use it to classify findings
+as new, persisting, or resolved, but should not attempt to reverse or treat the
+hash as a security boundary.
+
 ## 0.3.0 compatibility decision
 
 For the `0.3.0` release, report `schema_version` remains `0.1`. The post-`0.2.0` roadmap adds repository scan diagnostics, explanation payloads, review-only suggestions, `trend_summary`, and policy-drift data as additive top-level or finding-adjacent fields. Existing JSON keys, SARIF rule IDs, finding identity fields, severity summary semantics, baseline matching, and policy suppression behavior remain compatible with `0.1` consumers.

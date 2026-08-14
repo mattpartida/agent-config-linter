@@ -2,8 +2,11 @@
 
 import argparse
 import fnmatch
+import hashlib
 import json
+import ntpath
 import os
+import posixpath
 import re
 import stat
 import sys
@@ -48,6 +51,58 @@ def _report_path(path):
     if hasattr(path, "as_posix"):
         return path.as_posix()
     return str(path).replace("\\", "/")
+
+
+def _is_windows_report_path(path):
+    if re.match(r"^[A-Za-z]:", path) or path.startswith(("//?/", "//./")):
+        return True
+    if not path.startswith("//") or path.startswith("///"):
+        return False
+    root_parts = path[2:].split("/", 2)[:2]
+    return len(root_parts) == 2 and all(part not in {"", ".", ".."} for part in root_parts)
+
+
+def _normalize_fingerprint_path(path):
+    """Normalize a report path lexically without resolving the filesystem."""
+    serialized = _report_path(path)
+    if _is_windows_report_path(serialized):
+        normalized = ntpath.normpath(serialized).replace("\\", "/")
+    else:
+        normalized = posixpath.normpath(serialized)
+    if re.match(r"^[A-Z]:", normalized):
+        normalized = normalized[0].lower() + normalized[1:]
+    elif re.match(r"^//\?/[A-Z]:", normalized):
+        normalized = normalized[:4] + normalized[4].lower() + normalized[5:]
+    return normalized
+
+
+def _finding_fingerprint(rule_id, report_path, evidence_paths):
+    """Build a stable, versioned finding identity from documented fields."""
+    identity = {
+        "rule_id": str(rule_id),
+        "report_path": _normalize_fingerprint_path(report_path),
+        "evidence_paths": sorted({str(path) for path in evidence_paths}),
+    }
+    encoded = json.dumps(identity, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def _attach_fingerprints(report):
+    report_path = report.get("path", "<unknown>")
+    for section in (
+        "findings",
+        "policy_suppressed_findings",
+        "suppressed_findings",
+        "filtered_findings",
+        "confidence_filtered_findings",
+    ):
+        for finding in report.get(section, []):
+            finding["fingerprint"] = _finding_fingerprint(
+                finding.get("rule_id", finding["id"]),
+                report_path,
+                finding.get("evidence_paths", []),
+            )
+    return report
 
 
 class ConfigValidationError(ValueError):
@@ -808,6 +863,12 @@ def _build_report_schema():
             "source_evidence_paths": string_array,
             "remediation": {"type": "string"},
             "confidence": {"type": "string", "enum": list(CONFIDENCES)},
+            "fingerprint": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "minLength": 71,
+                "maxLength": 71,
+            },
             "policy": {"type": "object"},
             "suppression": {"type": "object"},
             "suggestions": {"type": "array", "items": {"type": "object"}},
@@ -937,6 +998,10 @@ def _validate_json_schema_value(value, schema, root_schema, path="$", errors=Non
         errors.append({"path": path, "message": f"expected one of {schema['enum']!r}"})
     if isinstance(value, str) and "pattern" in schema and re.search(schema["pattern"], value) is None:
         errors.append({"path": path, "message": f"value does not match pattern {schema['pattern']!r}"})
+    if isinstance(value, str) and "minLength" in schema and len(value) < schema["minLength"]:
+        errors.append({"path": path, "message": f"string must contain at least {schema['minLength']} characters"})
+    if isinstance(value, str) and "maxLength" in schema and len(value) > schema["maxLength"]:
+        errors.append({"path": path, "message": f"string must contain at most {schema['maxLength']} characters"})
     if isinstance(value, (int, float)) and not isinstance(value, bool) and "minimum" in schema and value < schema["minimum"]:
         errors.append({"path": path, "message": f"value must be at least {schema['minimum']}"})
     if isinstance(value, dict):
@@ -1165,6 +1230,7 @@ def _format_sarif(result):
                     "ruleId": rule_id,
                     "level": SARIF_LEVELS.get(finding["severity"], "warning"),
                     "message": {"text": f"{finding['title']}: {finding['evidence']}"},
+                    "partialFingerprints": {"agentConfigLinter/v1": finding["fingerprint"]},
                     "locations": [
                         {
                             "physicalLocation": {
@@ -1175,6 +1241,7 @@ def _format_sarif(result):
                     ],
                     "properties": {
                         "finding_id": finding["id"],
+                        "fingerprint": finding["fingerprint"],
                         "confidence": finding.get("confidence", "low"),
                         "remediation": finding["remediation"],
                         "evidence_paths": evidence_paths,
@@ -1560,6 +1627,7 @@ def run(argv=None):
                 config = _load_config(path)
                 report = lint_config(config)
                 report["path"] = report_path
+                report = _attach_fingerprints(report)
                 if policy:
                     report = _apply_policy(report, path, policy)
                 if args.baseline:

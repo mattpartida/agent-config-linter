@@ -23,6 +23,7 @@
           "evidence_paths": [
             "tools.filesystem"
           ],
+          "fingerprint": "sha256:2ed6a8a42137c5b4dcef81cfe56c417ec28475d033104bd6d4330e84f4da82eb",
           "id": "filesystem_broad_access",
           "remediation": "Constrain file access to project-scoped allowlists.",
           "rule_id": "ACL-002",
@@ -66,6 +67,7 @@
           "evidence_paths": [
             "tools.shell"
           ],
+          "fingerprint": "sha256:bc633d09d711579bb33a4dae911d4def31ffc0c705848c47a7d9b7fd375d2e63",
           "id": "shell_enabled",
           "remediation": "Require explicit approval and sandbox shell execution.",
           "rule_id": "ACL-001",

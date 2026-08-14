@@ -518,7 +518,7 @@ Phase 9 status: Shipped. This roadmap turned the linter's existing rule/report m
 
 ## Phase 10: report validation and durable finding identity
 
-Phase 10 status: Active. This roadmap makes stored reports easier to validate,
+Phase 10 status: Shipped. This roadmap makes stored reports easier to validate,
 compare, and consume safely across CI runs without narrowing the additive
 `schema_version` `0.1` compatibility contract.
 
@@ -560,10 +560,12 @@ does not execute tools, load configs, import plugins, or fetch remote resources.
 
 ### 30. Add deterministic finding fingerprints for cross-run comparison
 
-**Status: Planned.** Add stable finding fingerprints derived from rule ID,
-normalized report path, and evidence paths; document their identity boundary and
-cover POSIX/Windows path normalization so dashboards can distinguish new,
-persisting, and resolved findings.
+**Status: Shipped.** JSON findings and SARIF result properties now include a
+`sha256:` fingerprint derived from the rule ID, normalized report path, and
+sorted unique evidence paths. The identity boundary is documented, and tests
+cover separator normalization, evidence ordering, deterministic reruns, and
+identity changes so dashboards can distinguish new, persisting, and resolved
+findings.
 
 ## Ongoing quality bar
 

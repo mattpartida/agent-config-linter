@@ -33,6 +33,10 @@ Each fixture is a committed, deterministic CLI output. Inputs live under
 | [`repo-scan.json`](report-contracts/repo-scan.json) | `cli --repo-scan tests/fixtures/repo-scan` | Top-level `scan` discovery diagnostics. |
 | [`risky.sarif.json`](report-contracts/risky.sarif.json) | `cli risky.yaml --format sarif` | SARIF 2.1.0 shape with results and tool driver metadata. |
 
+SARIF results expose cross-run identity in both
+`properties.fingerprint` and
+`partialFingerprints["agentConfigLinter/v1"]`.
+
 ## Top-level fields
 
 **Stable consumer contracts** (present on every JSON report):
@@ -72,7 +76,9 @@ Each fixture is a committed, deterministic CLI output. Inputs live under
 ## Finding fields
 
 **Stable**: `id`, `rule_id`, `rule_name`, `severity`, `title`, `evidence`,
-`evidence_paths`, `source_evidence_paths`, `remediation`, `confidence`.
+`evidence_paths`, `source_evidence_paths`, `remediation`, `confidence`, and the
+additive `fingerprint` generated for cross-run identity. Older stored reports
+without `fingerprint` remain valid under the additive `0.1` schema contract.
 
 **Conditional**: `suggestions` (`--suggestions`), `policy` (on
 policy-suppressed findings), `suppression` (on baseline-suppressed findings).

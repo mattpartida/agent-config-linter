@@ -52,6 +52,7 @@ class ReportContractShapeTests(unittest.TestCase):
             "source_evidence_paths",
             "remediation",
             "confidence",
+            "fingerprint",
         ):
             self.assertIn(key, finding, f"finding missing stable key {key}")
 

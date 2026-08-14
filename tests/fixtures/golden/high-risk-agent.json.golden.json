@@ -9,6 +9,7 @@
           "evidence_paths": [
             "tools.shell"
           ],
+          "fingerprint": "sha256:a370211f0b6d773c93605a05b6ca1653ad73916715326a1058a547b8e4c5f71f",
           "id": "shell_enabled",
           "remediation": "Require explicit approval and sandbox shell execution.",
           "rule_id": "ACL-001",
@@ -25,6 +26,7 @@
           "evidence_paths": [
             "tools.filesystem"
           ],
+          "fingerprint": "sha256:3a7255a40467d6851d82504eda33124f3e6beb5eed129a33f5929e22f49565f2",
           "id": "filesystem_broad_access",
           "remediation": "Constrain file access to project-scoped allowlists.",
           "rule_id": "ACL-002",
@@ -41,6 +43,7 @@
           "evidence_paths": [
             "tools.browser"
           ],
+          "fingerprint": "sha256:78da2072e779edb1e9eb0d3b75ff2bcaa10ce528082d437ded1d48f4f468b647",
           "id": "browser_private_network",
           "remediation": "Block private network ranges unless explicitly needed.",
           "rule_id": "ACL-003",
@@ -69,6 +72,7 @@
             "tools.browser.enabled",
             "tools.browser.private_network"
           ],
+          "fingerprint": "sha256:1638ee1fe0d171603c4d4167b0b8651caed415ee127240f956eb9fc51f1b6266",
           "id": "lethal_trifecta",
           "remediation": "Break at least one leg with isolation, deny-by-default tools, or approval gates.",
           "rule_id": "ACL-004",
@@ -98,6 +102,7 @@
             "approvals.send_email",
             "approvals.shell"
           ],
+          "fingerprint": "sha256:145c7f78c5a27c323d685a71b72b226817646d9ffc9f2253baae2314e8e90521",
           "id": "approval_gate_missing",
           "remediation": "Require human approval for sends, shell, deletes, trades, purchases, and force-pushes.",
           "rule_id": "ACL-008",
@@ -115,6 +120,7 @@
           "evidence_paths": [
             "model"
           ],
+          "fingerprint": "sha256:417e8ba29e7c1ea4bd541324a88668a2fa21101d2f9349d049e563ced418e84e",
           "id": "weak_model_risk",
           "remediation": "Use stronger models for adversarial routing or add stricter tool gates.",
           "rule_id": "ACL-009",

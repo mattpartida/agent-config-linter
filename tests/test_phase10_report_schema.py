@@ -101,7 +101,7 @@ class ReportSchemaDocumentationTests(unittest.TestCase):
         self.assertIn("filtered_findings", report_contracts)
         self.assertIn("--report-schema", readme)
         self.assertIn("Phase 10 report validation", readme)
-        self.assertIn("Phase 10 status: Active", roadmap)
+        self.assertIn("Phase 10 status: Shipped", roadmap)
         item_28 = roadmap[roadmap.index("### 28.") : roadmap.index("### 29.")]
         self.assertIn("**Status: Shipped.**", item_28)
         self.assertIn("Phase 10 report JSON Schema", changelog)

@@ -32,6 +32,7 @@
           "evidence_paths": [
             "tools.shell"
           ],
+          "fingerprint": "sha256:9be62d3c8b75b03c842aa6be4db95f8a03ea4967b48b78b9c1fd4ce36c603315",
           "id": "shell_enabled",
           "remediation": "Require explicit approval and sandbox shell execution.",
           "rule_id": "ACL-001",
@@ -51,6 +52,7 @@
             "secrets.env",
             "tools.shell"
           ],
+          "fingerprint": "sha256:a0df6b8c069a79ca5064cf763682bbc17d9732178b34e522650df275641db229",
           "id": "secret_env_to_dangerous_tool",
           "remediation": "Do not expose broad environment secrets to dangerous tools; use scoped credentials and approval gates.",
           "rule_id": "ACL-014",

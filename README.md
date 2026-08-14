@@ -58,7 +58,7 @@ Output includes:
 - `score`
 - `signals.lethal_trifecta`
 - `signals.enabled_capabilities`
-- structured `findings`, including stable `rule_id`, `rule_name`, additive `confidence`, normalized `evidence_paths`, and original `source_evidence_paths` fields
+- structured `findings`, including stable `rule_id`, `rule_name`, additive `confidence`, normalized `evidence_paths`, original `source_evidence_paths`, and deterministic `fingerprint` fields
 - optional `policy_suppressed_findings` and `policy_suppressed_summary` when a policy disables or allowlists findings
 - optional `suppressed_findings` and `suppressed_summary` when a baseline is provided
 - optional `baseline.stale_suppressions`/`baseline.stale_count` for baseline cleanup
@@ -75,7 +75,7 @@ Output includes:
 
 ## Report compatibility
 
-Machine-readable JSON reports include `schema_version`. Additive fields may ship without changing `schema_version`, but removing or renaming fields, changing finding identity keys, or changing suppression semantics should trigger a schema review. Run `agent-config-lint --report-schema --format json` to retrieve the Draft 2020-12 JSON Schema for report `schema_version` `0.1`; the same contract is committed at [`docs/report-schema.json`](docs/report-schema.json). Golden-output tests in `tests/test_report_golden.py` guard JSON, Markdown, and SARIF report shape; see `docs/report-stability.md` before intentionally updating report output.
+Machine-readable JSON reports include `schema_version`. Additive fields may ship without changing `schema_version`, but removing or renaming fields, changing finding identity keys, or changing suppression semantics should trigger a schema review. Each generated JSON finding and SARIF result includes a deterministic `sha256:` finding fingerprint for cross-run comparison; it is derived from the rule ID, normalized report path, and sorted unique evidence paths. Run `agent-config-lint --report-schema --format json` to retrieve the Draft 2020-12 JSON Schema for report `schema_version` `0.1`; the same contract is committed at [`docs/report-schema.json`](docs/report-schema.json). Golden-output tests in `tests/test_report_golden.py` guard JSON, Markdown, and SARIF report shape; see `docs/report-stability.md` for the fingerprint identity boundary and before intentionally updating report output.
 
 Formats:
 
@@ -377,7 +377,7 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP, `0.2.0` readiness, Phase 5 precision/rule-pack foundations, Phase 6 repository-scale/developer UX, Phase 7 CI governance, Phase 8 release/ecosystem-readiness, and Phase 9 developer-discovery and integration-contract roadmaps are complete: policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, the machine-readable rule catalog, report-schema fixture contracts, and the integration manifest have shipped. Phase 10 report validation and durable finding identity is active; its discoverable Draft 2020-12 report schema has shipped, with stored-report validation next. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP through Phase 10 are complete. Phase 10 report validation and durable finding identity shipped a discoverable schema, stored-report validation, and deterministic cross-run finding fingerprints. Earlier phases shipped policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, and machine-readable discovery contracts. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
 
 Current release-readiness docs:
 

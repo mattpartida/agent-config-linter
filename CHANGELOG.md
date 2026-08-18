@@ -8,6 +8,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ### Added
 
+- Phase 11 stored-report comparison: `--compare-reports BEFORE.json AFTER.json` securely loads and validates two archived `0.1` JSON reports, derives missing legacy fingerprints, rejects duplicate active identities, and emits deterministic new/persisting/resolved finding arrays without rescanning or executing external resources.
+- Phase 11 CI regression gate: comparison-only `--fail-on-new` preserves the full JSON comparison contract and exits `1` only when new active findings are present.
+- Stored-report hardening bounds structural arrays, paths, diagnostics, and final comparison output; types complete repository-scan metadata; rejects mixed file-set/repository scopes, contradictory summaries, incomplete discovery metadata, and duplicate normalized file identities; and preserves compatibility with authentic pre-provenance `0.1` reports.
 - Phase 10 report JSON Schema: `--report-schema --format json` and `docs/report-schema.json` publish the additive Draft 2020-12 contract for stable JSON report, file, and finding fields; the integration manifest advertises schema discovery.
 - Phase 10 stored report validation: `--validate-report <report.json>` validates archived reports locally against the published stable schema subset without rescanning configs, executing tools/plugins, or fetching remote resources; deterministic validation errors distinguish contract failures from load errors.
 - Phase 10 finding fingerprints: generated JSON findings and SARIF results include deterministic `sha256:` fingerprints derived from rule ID, normalized report path, and sorted unique evidence paths for cross-run new/persisting/resolved comparison; SARIF also publishes the value through `partialFingerprints`.

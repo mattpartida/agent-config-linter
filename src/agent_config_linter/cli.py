@@ -27,6 +27,12 @@ CONFIDENCES = ("high", "medium", "low")
 CONFIDENCE_RANK = {confidence: index for index, confidence in enumerate(CONFIDENCES)}
 POLICY_BUNDLE_VERSION = "0.2.0"
 MAX_STORED_REPORT_BYTES = 10 * 1024 * 1024
+MAX_SCHEMA_ARRAY_ITEMS = 4096
+MAX_VALIDATION_ERRORS = 100
+MAX_DIAGNOSTIC_VALUE_CHARS = 200
+MAX_DIAGNOSTIC_TEXT_BYTES = 512
+MAX_REPORT_PATH_CHARS = 4096
+MAX_COMPARISON_OUTPUT_BYTES = 8 * 1024 * 1024
 
 SUPPORTED_SUFFIXES = {".json", ".toml", ".yaml", ".yml"}
 REPO_SCAN_IGNORED_DIRS = {
@@ -848,9 +854,7 @@ def _build_report_schema():
             "title",
             "evidence",
             "evidence_paths",
-            "source_evidence_paths",
             "remediation",
-            "confidence",
         ],
         "properties": {
             "id": {"type": "string"},
@@ -889,7 +893,7 @@ def _build_report_schema():
             "recommended_next_actions",
         ],
         "properties": {
-            "path": {"type": "string"},
+            "path": {"type": "string", "maxLength": MAX_REPORT_PATH_CHARS},
             "schema_version": {"const": "0.1"},
             "schema": {
                 "type": "object",
@@ -942,7 +946,27 @@ def _build_report_schema():
                 },
             },
             "baseline": {"type": "object"},
-            "scan": {"type": "object"},
+            "scan": {
+                "type": "object",
+                "required": ["discovered_files", "ignored_paths", "parser_failures"],
+                "properties": {
+                    "discovered_files": string_array,
+                    "ignored_paths": string_array,
+                    "parser_failures": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["path", "message"],
+                            "properties": {
+                                "path": {"type": "string"},
+                                "message": {"type": "string"},
+                            },
+                            "additionalProperties": True,
+                        },
+                    },
+                },
+                "additionalProperties": True,
+            },
             "explanations": {"type": "array", "items": {"type": "object"}},
             "policy_drift": {"type": "object"},
             "trend_summary": {"type": "object"},
@@ -976,54 +1000,258 @@ def _json_type_matches(value, expected_type):
     return type_checks[expected_type](value)
 
 
+class _ValidationErrors(list):
+    """Bounded validation diagnostics with deterministic truncation state."""
+
+    truncated = False
+
+
+def _record_validation_error(errors, path, message):
+    if len(errors) >= MAX_VALIDATION_ERRORS:
+        errors.truncated = True
+        return False
+    errors.append({"path": path, "message": message})
+    return True
+
+
 def _validate_json_schema_value(value, schema, root_schema, path="$", errors=None):
     """Validate the dependency-free subset used by the published report schema."""
     if errors is None:
-        errors = []
+        errors = _ValidationErrors()
+    if errors.truncated:
+        return errors
     if "$ref" in schema:
         reference = schema["$ref"]
         if not reference.startswith("#/$defs/"):
-            errors.append({"path": path, "message": f"unsupported schema reference {reference!r}"})
+            _record_validation_error(errors, path, f"unsupported schema reference {reference!r}")
             return errors
         schema = root_schema["$defs"][reference.removeprefix("#/$defs/")]
 
     if "const" in schema and value != schema["const"]:
-        errors.append({"path": path, "message": f"expected constant {schema['const']!r}"})
+        _record_validation_error(errors, path, f"expected constant {schema['const']!r}")
         return errors
     expected_type = schema.get("type")
     if expected_type and not _json_type_matches(value, expected_type):
-        errors.append({"path": path, "message": f"expected {expected_type}, got {type(value).__name__}"})
+        _record_validation_error(errors, path, f"expected {expected_type}, got {type(value).__name__}")
         return errors
     if "enum" in schema and value not in schema["enum"]:
-        errors.append({"path": path, "message": f"expected one of {schema['enum']!r}"})
+        _record_validation_error(errors, path, f"expected one of {schema['enum']!r}")
     if isinstance(value, str) and "pattern" in schema and re.search(schema["pattern"], value) is None:
-        errors.append({"path": path, "message": f"value does not match pattern {schema['pattern']!r}"})
+        _record_validation_error(errors, path, f"value does not match pattern {schema['pattern']!r}")
     if isinstance(value, str) and "minLength" in schema and len(value) < schema["minLength"]:
-        errors.append({"path": path, "message": f"string must contain at least {schema['minLength']} characters"})
+        _record_validation_error(errors, path, f"string must contain at least {schema['minLength']} characters")
     if isinstance(value, str) and "maxLength" in schema and len(value) > schema["maxLength"]:
-        errors.append({"path": path, "message": f"string must contain at most {schema['maxLength']} characters"})
+        _record_validation_error(errors, path, f"string must contain at most {schema['maxLength']} characters")
     if isinstance(value, (int, float)) and not isinstance(value, bool) and "minimum" in schema and value < schema["minimum"]:
-        errors.append({"path": path, "message": f"value must be at least {schema['minimum']}"})
+        _record_validation_error(errors, path, f"value must be at least {schema['minimum']}")
     if isinstance(value, dict):
         for name in sorted(set(schema.get("required", ())) - value.keys()):
-            errors.append({"path": f"{path}.{name}", "message": "required field is missing"})
+            if not _record_validation_error(errors, f"{path}.{name}", "required field is missing"):
+                return errors
         properties = schema.get("properties", {})
         for name in sorted(value.keys() & properties.keys()):
             _validate_json_schema_value(value[name], properties[name], root_schema, f"{path}.{name}", errors)
+            if errors.truncated:
+                return errors
     if isinstance(value, list) and "items" in schema:
+        if len(value) > MAX_SCHEMA_ARRAY_ITEMS:
+            _record_validation_error(
+                errors,
+                path,
+                f"array must contain at most {MAX_SCHEMA_ARRAY_ITEMS} items",
+            )
+            return errors
         for index, item in enumerate(value):
             _validate_json_schema_value(item, schema["items"], root_schema, f"{path}[{index}]", errors)
+            if errors.truncated:
+                return errors
     return errors
 
 
 def _validate_stored_report(report):
     schema = _build_report_schema()
     errors = _validate_json_schema_value(report, schema, schema)
-    return {
+    result = {
         "valid": not errors,
         "schema_version": report.get("schema_version") if isinstance(report, dict) else None,
-        "errors": errors,
+        "errors": list(errors),
     }
+    if errors.truncated:
+        result["errors_truncated"] = True
+        result["error_limit"] = MAX_VALIDATION_ERRORS
+    return result
+
+
+class StoredReportComparisonError(ValueError):
+    """Raised when a stored report cannot participate in a trusted comparison."""
+
+    def __init__(self, role, message, finding_path=None, finding_paths=None):
+        super().__init__(message)
+        self.role = role
+        self.finding_path = finding_path
+        self.finding_paths = finding_paths
+
+
+def _comparison_eligibility_errors(report):
+    if report.get("errors"):
+        return ["top-level errors is non-empty"]
+    if report.get("scan", {}).get("parser_failures"):
+        return ["parser failures are non-empty"]
+    file_reports = report.get("files", [])
+    if not file_reports:
+        return ["no file reports"]
+
+    normalized_paths = {}
+    for file_index, file_report in enumerate(file_reports):
+        normalized_path = _normalize_fingerprint_path(file_report["path"])
+        if normalized_path in normalized_paths:
+            return [
+                "duplicate normalized file path at "
+                f"$.files[{normalized_paths[normalized_path]}] and $.files[{file_index}]"
+            ]
+        normalized_paths[normalized_path] = file_index
+
+        expected_summary = {
+            severity: sum(
+                finding["severity"] == severity
+                for finding in file_report.get("findings", [])
+            )
+            for severity in SEVERITIES
+        }
+        actual_summary = {
+            severity: file_report["summary"][severity] for severity in SEVERITIES
+        }
+        if actual_summary != expected_summary:
+            return [f"$.files[{file_index}].summary does not match active findings"]
+
+    scan = report.get("scan")
+    if scan is not None:
+        if not isinstance(scan, dict):
+            return ["scan metadata must be an object"]
+        if "discovered_files" not in scan:
+            return ["scan discovered_files is missing"]
+        discovered_files = scan["discovered_files"]
+        if not isinstance(discovered_files, list) or not all(
+            isinstance(path, str) for path in discovered_files
+        ):
+            return ["scan discovered_files must be an array of strings"]
+        parser_failures = scan.get("parser_failures", [])
+        if not isinstance(parser_failures, list) or not all(
+            isinstance(failure, dict) and isinstance(failure.get("path"), str)
+            for failure in parser_failures
+        ):
+            return ["scan parser_failures must contain path-bearing objects"]
+        discovered = [_normalize_fingerprint_path(path) for path in discovered_files]
+        parser_failure_paths = [
+            _normalize_fingerprint_path(failure["path"])
+            for failure in parser_failures
+        ]
+        if len(discovered) != len(set(discovered)):
+            return ["scan discovered files contain duplicate normalized paths"]
+        expected_discovered = set(normalized_paths) | set(parser_failure_paths)
+        if set(discovered) != expected_discovered:
+            return ["scan discovered files do not match file reports and parser failures"]
+    return []
+
+
+def _compact_active_findings(report, role):
+    indexed = {}
+    locations = {}
+    for file_index, file_report in enumerate(report.get("files", [])):
+        report_path = file_report["path"]
+        for finding_index, finding in enumerate(file_report.get("findings", [])):
+            canonical = _finding_fingerprint(
+                finding.get("rule_id", finding["id"]),
+                report_path,
+                finding.get("evidence_paths", []),
+            )
+            supplied = finding.get("fingerprint")
+            if supplied is not None and supplied != canonical:
+                raise StoredReportComparisonError(
+                    role,
+                    f"supplied fingerprint does not match canonical identity at "
+                    f"$.files[{file_index}].findings[{finding_index}].fingerprint",
+                    finding_path=f"$.files[{file_index}].findings[{finding_index}].fingerprint",
+                )
+            location = f"$.files[{file_index}].findings[{finding_index}]"
+            if canonical in indexed:
+                raise StoredReportComparisonError(
+                    role,
+                    f"duplicate active fingerprint {canonical!r} at "
+                    f"{locations[canonical]} and {location} makes the {role} report ambiguous",
+                    finding_paths=[locations[canonical], location],
+                )
+            locations[canonical] = location
+            indexed[canonical] = {
+                "fingerprint": canonical,
+                "report_path": report_path,
+                "rule_id": finding.get("rule_id", finding["id"]),
+                "finding_id": finding["id"],
+                "severity": finding["severity"],
+                "title": finding["title"],
+            }
+    return indexed
+
+
+def _compare_stored_reports(before, after):
+    """Compare active findings without mutating either validated stored report."""
+    before_findings = _compact_active_findings(before, "before")
+    after_findings = _compact_active_findings(after, "after")
+    before_fingerprints = set(before_findings)
+    after_fingerprints = set(after_findings)
+
+    def entries(index, fingerprints):
+        return [index[fingerprint] for fingerprint in sorted(fingerprints)]
+
+    new = after_fingerprints - before_fingerprints
+    persisting = before_fingerprints & after_fingerprints
+    resolved = before_fingerprints - after_fingerprints
+    return {
+        "schema_version": "0.1",
+        "summary": {
+            "before": len(before_findings),
+            "after": len(after_findings),
+            "new": len(new),
+            "persisting": len(persisting),
+            "resolved": len(resolved),
+        },
+        "new_findings": entries(after_findings, new),
+        "persisting_findings": entries(after_findings, persisting),
+        "resolved_findings": entries(before_findings, resolved),
+    }
+
+
+def _comparison_scope(report):
+    return "repository" if "scan" in report else "file-set"
+
+
+def _projected_comparison_output_bytes(reports):
+    """Conservatively bound repeated compact-entry serialization before hashing."""
+    projected = 2048
+    placeholder_fingerprint = "sha256:" + "0" * 64
+    for report in reports:
+        for file_report in report.get("files", []):
+            report_path = file_report["path"]
+            for finding in file_report.get("findings", []):
+                entry = {
+                    "fingerprint": placeholder_fingerprint,
+                    "report_path": report_path,
+                    "rule_id": finding.get("rule_id", finding["id"]),
+                    "finding_id": finding["id"],
+                    "severity": finding["severity"],
+                    "title": finding["title"],
+                }
+                projected += len(
+                    json.dumps(
+                        entry,
+                        ensure_ascii=True,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ).encode("utf-8")
+                )
+                if projected > MAX_COMPARISON_OUTPUT_BYTES:
+                    return projected
+    return projected
 
 
 def _format_validate_report_error(path, message):
@@ -1031,8 +1259,44 @@ def _format_validate_report_error(path, message):
         {
             "schema_version": "0.1",
             "report_validation": None,
-            "errors": [{"path": str(path), "message": message}],
+            "errors": [
+                {
+                    "path": _bounded_diagnostic_text(path),
+                    "message": _bounded_diagnostic_text(message),
+                }
+            ],
         },
+        indent=2,
+        sort_keys=True,
+    ) + "\n"
+
+
+def _format_compare_reports_error(
+    role,
+    path,
+    message,
+    validation_errors=None,
+    validation_errors_truncated=False,
+    validation_error_limit=None,
+    finding_path=None,
+    finding_paths=None,
+):
+    error = {
+        "role": role,
+        "path": _bounded_diagnostic_text(path),
+        "message": _bounded_diagnostic_text(message),
+    }
+    if validation_errors is not None:
+        error["validation_errors"] = validation_errors
+    if validation_errors_truncated:
+        error["validation_errors_truncated"] = True
+        error["validation_error_limit"] = validation_error_limit
+    if finding_path is not None:
+        error["finding_path"] = finding_path
+    if finding_paths is not None:
+        error["finding_paths"] = finding_paths
+    return json.dumps(
+        {"schema_version": "0.1", "report_comparison": None, "errors": [error]},
         indent=2,
         sort_keys=True,
     ) + "\n"
@@ -1040,6 +1304,36 @@ def _format_validate_report_error(path, message):
 
 def _reject_json_constant(value):
     raise ValueError(f"stored report contains non-standard numeric constant {value}")
+
+
+def _bounded_diagnostic_repr(value):
+    rendered = repr(value)
+    if len(rendered) <= MAX_DIAGNOSTIC_VALUE_CHARS:
+        return rendered
+    return f"{rendered[:MAX_DIAGNOSTIC_VALUE_CHARS]}... <truncated>"
+
+
+def _bounded_diagnostic_text(value):
+    rendered = str(value)
+    encoded = rendered.encode("utf-8", errors="replace")
+    if len(encoded) <= MAX_DIAGNOSTIC_TEXT_BYTES:
+        return rendered
+    suffix = "... <truncated>"
+    budget = MAX_DIAGNOSTIC_TEXT_BYTES - len(suffix.encode("utf-8"))
+    prefix = encoded[:budget].decode("utf-8", errors="ignore")
+    return prefix + suffix
+
+
+def _reject_duplicate_json_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(
+                "stored report contains duplicate JSON object key "
+                f"{_bounded_diagnostic_repr(key)}"
+            )
+        result[key] = value
+    return result
 
 
 def _json_nesting_exceeds_limit(raw, limit=100):
@@ -1092,7 +1386,11 @@ def _load_stored_report(path):
     except UnicodeDecodeError as exc:
         raise ValueError("stored report must be UTF-8 JSON") from exc
     try:
-        return json.loads(text, parse_constant=_reject_json_constant)
+        return json.loads(
+            text,
+            parse_constant=_reject_json_constant,
+            object_pairs_hook=_reject_duplicate_json_keys,
+        )
     except RecursionError as exc:
         raise ValueError("stored report JSON nesting is too deep") from exc
 
@@ -1117,16 +1415,25 @@ def _build_integration_manifest():
             "rule_catalog_formats": ["json", "markdown"],
             "integration_manifest_formats": ["json", "markdown"],
             "report_schema_formats": ["json"],
+            "report_comparison_formats": ["json"],
         },
+        "capabilities": {"stored_report_comparison": True},
         "exit_codes": [
-            {"code": 0, "meaning": "Scan completed and no fail-on gate triggered."},
+            {
+                "code": 0,
+                "meaning": "Scan completed with no fail-on gate, or stored-report comparison completed successfully.",
+            },
             {
                 "code": 1,
                 "meaning": "A fail-on gate triggered: --fail-on, --fail-on-stale-baseline, "
-                "--fail-on-expired-baseline, --fail-on-policy-drift, --explain found no matching finding, "
-                "or stored-report contract validation failed.",
+                "--fail-on-expired-baseline, --fail-on-policy-drift, --fail-on-new, "
+                "--explain found no matching finding, "
+                "stored-report contract validation failed, or stored-report comparison was ambiguous.",
             },
-            {"code": 2, "meaning": "A load, parse, policy, baseline, or unsupported-format error occurred."},
+            {
+                "code": 2,
+                "meaning": "A load, JSON, parse, policy, baseline, non-object report, or unsupported-format error occurred.",
+            },
         ],
         "flags": {
             "policy": "--policy",
@@ -1142,6 +1449,8 @@ def _build_integration_manifest():
             "integration_manifest": "--integration-manifest",
             "report_schema": "--report-schema",
             "validate_report": "--validate-report",
+            "compare_reports": "--compare-reports",
+            "fail_on_new": "--fail-on-new",
         },
         "optional_report_sections": [
             "baseline",
@@ -1519,10 +1828,61 @@ def run(argv=None):
     parser.add_argument("--integration-manifest", action="store_true", help="Emit a machine-readable capability manifest for wrappers and dashboards")
     parser.add_argument("--report-schema", action="store_true", help="Emit the JSON Schema for machine-readable scan reports")
     parser.add_argument("--validate-report", help="Validate a stored JSON report without rescanning configs")
+    parser.add_argument(
+        "--compare-reports",
+        nargs=2,
+        metavar=("BEFORE.json", "AFTER.json"),
+        help="Compare active findings in two validated stored JSON reports",
+    )
+    parser.add_argument(
+        "--fail-on-new",
+        action="store_true",
+        help="Exit with code 1 when --compare-reports finds new active findings",
+    )
     parser.add_argument("--version", action="store_true", help="Print version and exit")
     args = parser.parse_args(argv)
     if args.fail_on_policy_drift:
         args.check_policy_drift = True
+
+    if args.fail_on_new and not args.compare_reports:
+        return 2, _format_compare_reports_error(
+            "comparison",
+            "<compare-reports>",
+            "--fail-on-new requires --compare-reports",
+        )
+
+    if args.compare_reports:
+        incompatible = any(
+            (
+                args.paths,
+                args.summary_only,
+                args.validate_report,
+                args.list_rules,
+                args.integration_manifest,
+                args.report_schema,
+                args.version,
+                args.policy,
+                args.baseline,
+                args.generate_baseline,
+                args.fail_on_stale_baseline,
+                args.fail_on_expired_baseline,
+                args.min_severity,
+                args.fail_on,
+                args.validate_rule_pack,
+                args.repo_scan,
+                args.explain,
+                args.suggestions,
+                args.trend_summary,
+                args.check_policy_drift,
+                args.fail_on_policy_drift,
+            )
+        )
+        if incompatible:
+            return 2, _format_compare_reports_error(
+                "comparison",
+                "<compare-reports>",
+                "--compare-reports cannot be combined with config paths or other scan/discovery modes",
+            )
 
     if args.version:
         return 0, f"agent-config-linter {__version__}\n"
@@ -1556,6 +1916,104 @@ def run(argv=None):
         validation = _validate_stored_report(report)
         result = {"schema_version": "0.1", "report_validation": validation, "errors": []}
         return (0 if validation["valid"] else 1), json.dumps(result, indent=2, sort_keys=True) + "\n"
+    if args.compare_reports:
+        before_path, after_path = (Path(path) for path in args.compare_reports)
+        if args.format != "json":
+            return 2, _format_compare_reports_error(
+                "comparison",
+                "<compare-reports>",
+                "--compare-reports supports only json format",
+            )
+        reports = {}
+        for role, report_path in (("before", before_path), ("after", after_path)):
+            try:
+                report = _load_stored_report(report_path)
+            except json.JSONDecodeError as exc:
+                return 2, _format_compare_reports_error(
+                    role,
+                    report_path,
+                    f"stored report must contain valid JSON: {exc.msg}",
+                )
+            except (OSError, ValueError) as exc:
+                return 2, _format_compare_reports_error(role, report_path, str(exc))
+            if not isinstance(report, dict):
+                return 2, _format_compare_reports_error(
+                    role,
+                    report_path,
+                    "stored report must be a JSON object",
+                )
+            validation = _validate_stored_report(report)
+            if not validation["valid"]:
+                return 1, _format_compare_reports_error(
+                    role,
+                    report_path,
+                    "stored report failed schema validation",
+                    validation["errors"],
+                    validation.get("errors_truncated", False),
+                    validation.get("error_limit"),
+                )
+            eligibility_errors = _comparison_eligibility_errors(report)
+            if eligibility_errors:
+                return 1, _format_compare_reports_error(
+                    role,
+                    report_path,
+                    "; ".join(eligibility_errors),
+                )
+            reports[role] = report
+        before_scope = _comparison_scope(reports["before"])
+        after_scope = _comparison_scope(reports["after"])
+        if before_scope != after_scope:
+            return 1, _format_compare_reports_error(
+                "comparison",
+                "<compare-reports>",
+                f"comparison scope mismatch: before is {before_scope}, after is {after_scope}",
+            )
+        if _projected_comparison_output_bytes(
+            (reports["before"], reports["after"])
+        ) > MAX_COMPARISON_OUTPUT_BYTES:
+            return 1, _format_compare_reports_error(
+                "comparison",
+                "<compare-reports>",
+                "projected comparison output budget exceeded",
+            )
+        try:
+            comparison = _compare_stored_reports(reports["before"], reports["after"])
+        except StoredReportComparisonError as exc:
+            report_path = before_path if exc.role == "before" else after_path
+            return 1, _format_compare_reports_error(
+                exc.role,
+                report_path,
+                str(exc),
+                finding_path=exc.finding_path,
+                finding_paths=exc.finding_paths,
+            )
+        comparison["before"] = {
+            "path": str(before_path),
+            "schema_version": reports["before"]["schema_version"],
+        }
+        comparison["after"] = {
+            "path": str(after_path),
+            "schema_version": reports["after"]["schema_version"],
+        }
+        comparison["scope"] = before_scope
+        gate_triggered = bool(comparison["new_findings"])
+        if args.fail_on_new:
+            comparison["gate"] = {
+                "fail_on_new": True,
+                "triggered": gate_triggered,
+            }
+        result = {"schema_version": "0.1", "report_comparison": comparison, "errors": []}
+        output = json.dumps(result, indent=2, sort_keys=True) + "\n"
+        if len(output.encode("utf-8")) > MAX_COMPARISON_OUTPUT_BYTES:
+            return 1, _format_compare_reports_error(
+                "comparison",
+                "<compare-reports>",
+                "serialized comparison output budget exceeded",
+            )
+        return (
+            1 if args.fail_on_new and gate_triggered else 0,
+            output,
+        )
     if args.validate_rule_pack:
         manifest_path = Path(args.validate_rule_pack)
         try:
@@ -1718,7 +2176,13 @@ def run(argv=None):
 
 def main(argv=None):
     exit_code, output = run(argv)
-    stream = sys.stderr if exit_code else sys.stdout
+    comparison_succeeded = False
+    if exit_code:
+        try:
+            comparison_succeeded = json.loads(output).get("report_comparison") is not None
+        except (AttributeError, json.JSONDecodeError):
+            pass
+    stream = sys.stdout if not exit_code or comparison_succeeded else sys.stderr
     stream.write(output)
     return exit_code
 

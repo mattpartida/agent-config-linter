@@ -567,6 +567,40 @@ cover separator normalization, evidence ordering, deterministic reruns, and
 identity changes so dashboards can distinguish new, persisting, and resolved
 findings.
 
+## Phase 11: stored-report comparison and CI regression gates
+
+Phase 11 status: In progress. Deterministic stored-report comparison and its
+opt-in CI regression gate are shipped; human-readable summaries remain planned.
+
+### 31. Add deterministic stored-report comparison
+
+**Status: Shipped.** `agent-config-lint --compare-reports BEFORE.json AFTER.json`
+securely loads and validates both stored reports, compares active findings by
+durable fingerprint, derives missing fingerprints for accepted legacy `0.1`
+reports, rejects duplicate active identities, and emits sorted JSON arrays for
+new, persisting, and resolved findings without rescanning or external execution.
+Comparison exposes file-set versus repository scope, rejects mixed scopes, and
+enforces bounded validation diagnostics and output.
+
+**Acceptance:**
+
+- Comparison works without config paths and supports JSON output only.
+- Compact entries remain auditable and persisting findings prefer after metadata.
+- Successful comparison exits `0`; schema/ambiguity errors exit `1`; load/format errors exit `2`.
+- Report `schema_version` remains `0.1`.
+
+### 32. Add fail-on-new regression gating
+
+**Status: Shipped.** `--fail-on-new` is an explicit comparison-only CI gate that
+exits `1` when a successful stored-report comparison contains new active
+findings. Default comparison behavior remains backward compatible, and gated
+output preserves the complete comparison with deterministic trigger metadata.
+
+### 33. Add human-readable and CI comparison summaries
+
+**Status: Planned.** Add safely escaped human-readable summaries and copyable CI
+artifact/workflow guidance after the JSON comparison contract has stabilized.
+
 ## Ongoing quality bar
 
 Before merging roadmap work, run:

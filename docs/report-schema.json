@@ -28,6 +28,7 @@
           "type": "array"
         },
         "path": {
+          "maxLength": 4096,
           "type": "string"
         },
         "policy_suppressed_findings": {
@@ -196,9 +197,7 @@
         "title",
         "evidence",
         "evidence_paths",
-        "source_evidence_paths",
-        "remediation",
-        "confidence"
+        "remediation"
       ],
       "type": "object"
     },
@@ -277,6 +276,45 @@
       "type": "object"
     },
     "scan": {
+      "additionalProperties": true,
+      "properties": {
+        "discovered_files": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ignored_paths": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "parser_failures": {
+          "items": {
+            "additionalProperties": true,
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "discovered_files",
+        "ignored_paths",
+        "parser_failures"
+      ],
       "type": "object"
     },
     "schema_version": {

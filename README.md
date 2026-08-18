@@ -49,6 +49,8 @@ agent-config-lint --list-rules --format markdown
 agent-config-lint --integration-manifest --format json
 agent-config-lint --report-schema --format json > agent-config-linter-report.schema.json
 agent-config-lint --validate-report agent-config-linter-report.json --format json
+agent-config-lint --compare-reports before.json after.json --format json
+agent-config-lint --compare-reports before.json after.json --fail-on-new --format json
 agent-config-lint --version
 ```
 
@@ -89,11 +91,11 @@ Formats:
 
 ## Exit codes
 
-- `0`: scan completed and no fail-on gate triggered.
-- `1`: a fail-on gate triggered (`--fail-on`, `--fail-on-stale-baseline`, `--fail-on-expired-baseline`, `--fail-on-policy-drift`, or `--explain` found no matching finding), or stored-report contract validation failed.
-- `2`: a load, parse, policy, baseline, or unsupported-format error occurred.
+- `0`: scan completed with no fail-on gate, or stored-report comparison completed successfully regardless of new findings.
+- `1`: a fail-on gate triggered (`--fail-on`, `--fail-on-stale-baseline`, `--fail-on-expired-baseline`, `--fail-on-policy-drift`, `--fail-on-new`, or `--explain` found no matching finding), stored-report contract validation failed, or duplicate active fingerprints made a comparison ambiguous.
+- `2`: a load, JSON, parse, policy, baseline, non-object report, or unsupported-format error occurred.
 
-Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, optional report sections, report-schema availability, and stored-report validation programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
+Wrapper, editor, and dashboard authors can discover supported formats, exit codes, flags, optional report sections, report-schema availability, stored-report validation, and stored-report comparison programmatically with `agent-config-lint --integration-manifest --format json`. Published representative report payloads for parser validation live in [`docs/report-contracts/`](docs/report-contracts.md).
 
 Validate an archived report without rescanning source configs:
 
@@ -101,7 +103,15 @@ Validate an archived report without rescanning source configs:
 agent-config-lint --validate-report agent-config-linter-report.json --format json
 ```
 
-Validation is local, dependency-light, and non-executable: it reads one JSON object, enforces the published stable fields and `schema_version`, accepts additive unknown fields, performs no config/plugin/tool execution or network access, and rejects files larger than 10 MiB. A valid report exits `0`, stable-contract mismatches exit `1`, and load/JSON/format errors exit `2`.
+Validation is local, dependency-light, and non-executable: it reads one JSON object, enforces the published stable fields and `schema_version`, accepts additive unknown fields, performs no config/plugin/tool execution or network access, and rejects files larger than 10 MiB. File-report paths and schema-declared arrays are capped at 4,096 characters/items, validation diagnostics at 100 errors, and operational diagnostic text at 512 UTF-8 bytes; truncated diagnostics carry deterministic limit metadata. A valid report exits `0`, stable-contract mismatches exit `1`, and load/JSON/format errors exit `2`.
+
+Compare active findings in two archived reports without rescanning configs:
+
+```bash
+agent-config-lint --compare-reports before.json after.json --format json
+```
+
+Stored-report comparison securely loads and validates both reports through the same bounded local JSON path, then emits sorted `new_findings`, `persisting_findings`, and `resolved_findings` arrays plus summary counts under an 8 MiB projected/final output budget. It fails closed when active severity summaries disagree, normalized file identities collide, repository discovery metadata is malformed, or discovered files do not agree with reports. The emitted `scope` is `repository` only when both reports carry complete scan metadata; two reports without scan metadata are compared as an explicit `file-set`, and mixed scopes are rejected. Entries include the durable fingerprint, report path, rule and finding IDs, severity, and title; persisting entries prefer metadata from the after report. Genuine legacy `schema_version` `0.1` reports without later additive fingerprint, confidence, or source-provenance fields are supported by deriving the documented identity without mutating the loaded reports. Duplicate active fingerprints are rejected as ambiguous. This command supports JSON only, performs no config scan, plugin/tool execution, arbitrary import, Markdown rendering, or network access, and exits `0` even when new findings exist. Add `--fail-on-new` for an explicit CI regression gate: it preserves the complete comparison payload on stdout, adds an auditable `gate` object, and exits `1` only when the comparison contains new active findings. Comparison validates structure and canonical identity, not artifact provenance; use integrity-protected or signed reports when an attacker could rewrite stored artifacts consistently.
 
 ## Example
 
@@ -123,6 +133,8 @@ PYTHONPATH=src python -m agent_config_linter.cli examples/high-risk-agent.json -
 PYTHONPATH=src python -m agent_config_linter.cli --list-rules --format json
 PYTHONPATH=src python -m agent_config_linter.cli --report-schema --format json
 PYTHONPATH=src python -m agent_config_linter.cli --validate-report docs/report-contracts/risky.json --format json
+PYTHONPATH=src python -m agent_config_linter.cli --compare-reports docs/report-contracts/clean.json docs/report-contracts/risky.json --format json
+PYTHONPATH=src python -m agent_config_linter.cli --compare-reports docs/report-contracts/clean.json docs/report-contracts/risky.json --fail-on-new --format json
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
@@ -377,7 +389,7 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP through Phase 10 are complete. Phase 10 report validation and durable finding identity shipped a discoverable schema, stored-report validation, and deterministic cross-run finding fingerprints. Earlier phases shipped policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, and machine-readable discovery contracts. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP through Phase 10 are complete. Phase 11 is in progress: deterministic stored-report comparison and its opt-in `--fail-on-new` CI regression gate have shipped, while human-readable CI summaries remain planned. Phase 10 report validation and durable finding identity shipped a discoverable schema, stored-report validation, and deterministic cross-run finding fingerprints. Earlier phases shipped policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, and machine-readable discovery contracts. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
 
 Current release-readiness docs:
 

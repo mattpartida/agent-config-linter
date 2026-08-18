@@ -60,6 +60,55 @@ pre-fingerprint reports remain valid. Consumers may use it to classify findings
 as new, persisting, or resolved, but should not attempt to reverse or treat the
 hash as a security boundary.
 
+## Stored-report comparison
+
+`agent-config-lint --compare-reports BEFORE.json AFTER.json --format json`
+compares only active findings under `files[*].findings`. Both inputs pass through
+the same 10 MiB, regular-file, UTF-8, finite-number, bounded-nesting loader used
+by `--validate-report`, and both must satisfy the published `schema_version`
+`0.1` contract before comparison. The operation does not rescan configs, execute
+plugins or tools, perform arbitrary imports, render untrusted strings as
+Markdown, or access the network.
+
+Validation bounds both input and diagnostic work: files are limited to 10 MiB,
+file-report paths to 4,096 characters, schema-declared arrays to 4,096 items,
+and reported schema errors to 100. Operational path and exception diagnostics
+are capped at 512 UTF-8 bytes. When
+more validation errors exist, `--validate-report` uses additive
+`errors_truncated` and `error_limit` metadata; comparison error envelopes use
+`validation_errors_truncated` and `validation_error_limit`. Both make truncation
+explicit and deterministic.
+
+Comparison output is deterministic: compact entries and the `new_findings`,
+`persisting_findings`, and `resolved_findings` arrays are ordered by fingerprint.
+Preflight projection and final serialization both enforce an 8 MiB comparison
+output budget before a payload is returned.
+Persisting entries use after-report metadata. For accepted legacy `0.1` findings
+that omit additive fingerprint, confidence, or source-provenance fields, the
+command derives identity from the rule ID, containing file-report path, and
+evidence paths using the algorithm above, without mutating either loaded report.
+Duplicate active fingerprints within one input are rejected because they make
+identity ambiguous.
+Comparison also rejects contradictory per-file active severity summaries,
+duplicate normalized file-report paths, and repository-scan discovery metadata
+that does not agree with file reports and parser failures. These checks establish
+structural consistency, not artifact provenance or authenticity; use signed or
+otherwise integrity-protected reports when hostile parties can rewrite artifacts.
+
+The comparison `scope` is `repository` only when both reports contain complete
+`scan` objects with `discovered_files`, `ignored_paths`, and `parser_failures`;
+otherwise both reports must be explicit `file-set` scope. Mixed scopes are
+rejected. A file-set comparison makes no repository-completeness claim. Because
+scope metadata is not authenticated, integrity-protected reports remain required
+when an attacker could consistently rewrite both artifacts.
+
+A successful comparison exits `0` even when new findings exist. The explicit
+`--fail-on-new` CI gate preserves the complete comparison payload on stdout, adds a
+deterministic `gate` object, and exits `1` only when new active findings exist.
+Stored-report schema failures and duplicate-fingerprint ambiguity also exit `1`;
+load, JSON, non-object, and unsupported-format errors exit `2`. Human-readable
+comparison summaries remain a future roadmap item.
+
 ## 0.3.0 compatibility decision
 
 For the `0.3.0` release, report `schema_version` remains `0.1`. The post-`0.2.0` roadmap adds repository scan diagnostics, explanation payloads, review-only suggestions, `trend_summary`, and policy-drift data as additive top-level or finding-adjacent fields. Existing JSON keys, SARIF rule IDs, finding identity fields, severity summary semantics, baseline matching, and policy suppression behavior remain compatible with `0.1` consumers.

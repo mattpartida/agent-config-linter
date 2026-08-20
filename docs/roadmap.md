@@ -569,8 +569,8 @@ findings.
 
 ## Phase 11: stored-report comparison and CI regression gates
 
-Phase 11 status: In progress. Deterministic stored-report comparison and its
-opt-in CI regression gate are shipped; human-readable summaries remain planned.
+Phase 11 status: Shipped. Deterministic stored-report comparison, its opt-in CI
+regression gate, and safely escaped human-readable CI summaries are complete.
 
 ### 31. Add deterministic stored-report comparison
 
@@ -584,7 +584,7 @@ enforces bounded validation diagnostics and output.
 
 **Acceptance:**
 
-- Comparison works without config paths and supports JSON output only.
+- Comparison works without config paths and supports JSON plus escaped Markdown output.
 - Compact entries remain auditable and persisting findings prefer after metadata.
 - Successful comparison exits `0`; schema/ambiguity errors exit `1`; load/format errors exit `2`.
 - Report `schema_version` remains `0.1`.
@@ -598,8 +598,12 @@ output preserves the complete comparison with deterministic trigger metadata.
 
 ### 33. Add human-readable and CI comparison summaries
 
-**Status: Planned.** Add safely escaped human-readable summaries and copyable CI
-artifact/workflow guidance after the JSON comparison contract has stabilized.
+**Status: Shipped.** `--format markdown` and `--format github-markdown` render
+deterministic comparison counts plus auditable finding tables; `--summary-only`
+emits a compact CI summary. Untrusted table text escapes pipes/newlines and
+neutralizes `@everyone`/`@here`. The read-only example workflow writes
+`GITHUB_STEP_SUMMARY`, uploads the Markdown artifact even when gating fails, and
+then enforces the preserved `--fail-on-new` exit status.
 
 ## Ongoing quality bar
 

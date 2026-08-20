@@ -308,7 +308,15 @@ def _expand_path(path):
 
 
 def _markdown_escape(value):
-    return str(value).replace("|", "\\|").replace("\n", " ")
+    return (
+        str(value)
+        .replace("\\", "\\\\")
+        .replace("\r", " ")
+        .replace("\n", " ")
+        .replace("|", "\\|")
+        .replace("@everyone", "@\u200beveryone")
+        .replace("@here", "@\u200bhere")
+    )
 
 
 def _path_matches(pattern, path):
@@ -1302,6 +1310,60 @@ def _format_compare_reports_error(
     ) + "\n"
 
 
+def _format_report_comparison(result, output_format, summary_only=False):
+    """Render a validated stored-report comparison for people and CI summaries."""
+    comparison = result["report_comparison"]
+    summary = comparison["summary"]
+    github = output_format == "github-markdown"
+    lines = [
+        "## agent-config-linter comparison" if github else "# Agent Config Linter Report Comparison",
+        "",
+        f"Scope: **{_markdown_escape(comparison['scope'])}**",
+        "",
+        "| Before | After | New | Persisting | Resolved |",
+        "| ---: | ---: | ---: | ---: | ---: |",
+        "| {before} | {after} | {new} | {persisting} | {resolved} |".format(**summary),
+        "",
+    ]
+    gate = comparison.get("gate")
+    if gate:
+        gate_status = "failed" if gate["triggered"] else "passed"
+        lines.extend([f"Regression gate: **{gate_status}** (`--fail-on-new`).", ""])
+    if summary_only:
+        return "\n".join(lines).rstrip() + "\n"
+
+    heading = "###" if github else "##"
+    sections = (
+        ("New findings", comparison["new_findings"]),
+        ("Persisting findings", comparison["persisting_findings"]),
+        ("Resolved findings", comparison["resolved_findings"]),
+    )
+    for title, findings in sections:
+        lines.extend([f"{heading} {title}", ""])
+        if not findings:
+            lines.extend(["None.", ""])
+            continue
+        lines.extend(
+            [
+                "| Rule | Severity | Finding | File | Title | Fingerprint |",
+                "| --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+        for finding in findings:
+            lines.append(
+                "| {rule_id} | {severity} | {finding_id} | {report_path} | {title} | `{fingerprint}` |".format(
+                    rule_id=_markdown_escape(finding["rule_id"]),
+                    severity=_markdown_escape(finding["severity"]),
+                    finding_id=_markdown_escape(finding["finding_id"]),
+                    report_path=_markdown_escape(finding["report_path"]),
+                    title=_markdown_escape(finding["title"]),
+                    fingerprint=_markdown_escape(finding["fingerprint"]),
+                )
+            )
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def _reject_json_constant(value):
     raise ValueError(f"stored report contains non-standard numeric constant {value}")
 
@@ -1415,7 +1477,7 @@ def _build_integration_manifest():
             "rule_catalog_formats": ["json", "markdown"],
             "integration_manifest_formats": ["json", "markdown"],
             "report_schema_formats": ["json"],
-            "report_comparison_formats": ["json"],
+            "report_comparison_formats": ["json", "markdown", "github-markdown"],
         },
         "capabilities": {"stored_report_comparison": True},
         "exit_codes": [
@@ -1855,7 +1917,6 @@ def run(argv=None):
         incompatible = any(
             (
                 args.paths,
-                args.summary_only,
                 args.validate_report,
                 args.list_rules,
                 args.integration_manifest,
@@ -1918,11 +1979,17 @@ def run(argv=None):
         return (0 if validation["valid"] else 1), json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.compare_reports:
         before_path, after_path = (Path(path) for path in args.compare_reports)
-        if args.format != "json":
+        if args.format not in {"json", "markdown", "github-markdown"}:
             return 2, _format_compare_reports_error(
                 "comparison",
                 "<compare-reports>",
-                "--compare-reports supports only json format",
+                "--compare-reports supports only json, markdown, and github-markdown formats",
+            )
+        if args.summary_only and args.format == "json":
+            return 2, _format_compare_reports_error(
+                "comparison",
+                "<compare-reports>",
+                "--summary-only with --compare-reports requires markdown or github-markdown format",
             )
         reports = {}
         for role, report_path in (("before", before_path), ("after", after_path)):
@@ -2003,7 +2070,14 @@ def run(argv=None):
                 "triggered": gate_triggered,
             }
         result = {"schema_version": "0.1", "report_comparison": comparison, "errors": []}
-        output = json.dumps(result, indent=2, sort_keys=True) + "\n"
+        if args.format == "json":
+            output = json.dumps(result, indent=2, sort_keys=True) + "\n"
+        else:
+            output = _format_report_comparison(
+                result,
+                args.format,
+                summary_only=args.summary_only,
+            )
         if len(output.encode("utf-8")) > MAX_COMPARISON_OUTPUT_BYTES:
             return 1, _format_compare_reports_error(
                 "comparison",
@@ -2181,7 +2255,12 @@ def main(argv=None):
         try:
             comparison_succeeded = json.loads(output).get("report_comparison") is not None
         except (AttributeError, json.JSONDecodeError):
-            pass
+            comparison_succeeded = output.startswith(
+                (
+                    "# Agent Config Linter Report Comparison\n",
+                    "## agent-config-linter comparison\n",
+                )
+            )
     stream = sys.stdout if not exit_code or comparison_succeeded else sys.stderr
     stream.write(output)
     return exit_code

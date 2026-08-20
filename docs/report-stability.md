@@ -106,8 +106,15 @@ A successful comparison exits `0` even when new findings exist. The explicit
 `--fail-on-new` CI gate preserves the complete comparison payload on stdout, adds a
 deterministic `gate` object, and exits `1` only when new active findings exist.
 Stored-report schema failures and duplicate-fingerprint ambiguity also exit `1`;
-load, JSON, non-object, and unsupported-format errors exit `2`. Human-readable
-comparison summaries remain a future roadmap item.
+load, JSON, non-object, and unsupported-format errors exit `2`.
+
+Comparison output supports `json`, `markdown`, and `github-markdown`. Markdown
+uses the same deterministic comparison object and output budget, escapes table
+pipes/newlines, and neutralizes `@everyone`/`@here` mass mentions copied from
+stored report paths or finding titles. `--summary-only` is available for the two
+Markdown formats and emits counts plus gate status without finding tables. A
+triggered Markdown `--fail-on-new` gate keeps the rendered summary on stdout so
+CI can append it to `GITHUB_STEP_SUMMARY` before enforcing the non-zero exit.
 
 ## 0.3.0 compatibility decision
 

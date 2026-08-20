@@ -1,0 +1,58 @@
+name: Agent Config Linter Report Comparison
+
+on:
+  workflow_dispatch:
+    inputs:
+      before_report:
+        description: Path to the trusted baseline JSON report
+        required: true
+        default: artifacts/before.json
+      after_report:
+        description: Path to the current JSON report
+        required: true
+        default: artifacts/after.json
+
+permissions:
+  contents: read
+
+jobs:
+  compare-reports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Install agent-config-linter
+        run: python -m pip install --upgrade pip agent-config-linter
+      - name: Compare stored reports
+        id: comparison
+        continue-on-error: true
+        env:
+          BEFORE_REPORT: ${{ inputs.before_report }}
+          AFTER_REPORT: ${{ inputs.after_report }}
+        run: |
+          set +e
+          agent-config-lint \
+            --compare-reports "$BEFORE_REPORT" "$AFTER_REPORT" \
+            --fail-on-new \
+            --format github-markdown --summary-only \
+            > agent-config-linter-comparison.md
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          cat agent-config-linter-comparison.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+      - name: Upload comparison summary
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: agent-config-linter-comparison
+          path: agent-config-linter-comparison.md
+          retention-days: 30
+      - name: Enforce comparison result
+        if: ${{ always() && steps.comparison.outputs.exit_code != '0' }}
+        env:
+          COMPARISON_EXIT_CODE: ${{ steps.comparison.outputs.exit_code }}
+        run: |
+          echo "agent-config-linter comparison exited with $COMPARISON_EXIT_CODE" >&2
+          exit 1

@@ -51,6 +51,8 @@ agent-config-lint --report-schema --format json > agent-config-linter-report.sch
 agent-config-lint --validate-report agent-config-linter-report.json --format json
 agent-config-lint --compare-reports before.json after.json --format json
 agent-config-lint --compare-reports before.json after.json --fail-on-new --format json
+agent-config-lint --compare-reports before.json after.json --format markdown
+agent-config-lint --compare-reports before.json after.json --fail-on-new --format github-markdown --summary-only
 agent-config-lint --version
 ```
 
@@ -111,7 +113,9 @@ Compare active findings in two archived reports without rescanning configs:
 agent-config-lint --compare-reports before.json after.json --format json
 ```
 
-Stored-report comparison securely loads and validates both reports through the same bounded local JSON path, then emits sorted `new_findings`, `persisting_findings`, and `resolved_findings` arrays plus summary counts under an 8 MiB projected/final output budget. It fails closed when active severity summaries disagree, normalized file identities collide, repository discovery metadata is malformed, or discovered files do not agree with reports. The emitted `scope` is `repository` only when both reports carry complete scan metadata; two reports without scan metadata are compared as an explicit `file-set`, and mixed scopes are rejected. Entries include the durable fingerprint, report path, rule and finding IDs, severity, and title; persisting entries prefer metadata from the after report. Genuine legacy `schema_version` `0.1` reports without later additive fingerprint, confidence, or source-provenance fields are supported by deriving the documented identity without mutating the loaded reports. Duplicate active fingerprints are rejected as ambiguous. This command supports JSON only, performs no config scan, plugin/tool execution, arbitrary import, Markdown rendering, or network access, and exits `0` even when new findings exist. Add `--fail-on-new` for an explicit CI regression gate: it preserves the complete comparison payload on stdout, adds an auditable `gate` object, and exits `1` only when the comparison contains new active findings. Comparison validates structure and canonical identity, not artifact provenance; use integrity-protected or signed reports when an attacker could rewrite stored artifacts consistently.
+Stored-report comparison securely loads and validates both reports through the same bounded local JSON path, then emits sorted `new_findings`, `persisting_findings`, and `resolved_findings` arrays plus summary counts under an 8 MiB projected/final output budget. It fails closed when active severity summaries disagree, normalized file identities collide, repository discovery metadata is malformed, or discovered files do not agree with reports. The emitted `scope` is `repository` only when both reports carry complete scan metadata; two reports without scan metadata are compared as an explicit `file-set`, and mixed scopes are rejected. Entries include the durable fingerprint, report path, rule and finding IDs, severity, and title; persisting entries prefer metadata from the after report. Genuine legacy `schema_version` `0.1` reports without later additive fingerprint, confidence, or source-provenance fields are supported by deriving the documented identity without mutating the loaded reports. Duplicate active fingerprints are rejected as ambiguous.
+
+Comparison supports stable JSON plus safely escaped `markdown` and `github-markdown`. Add `--summary-only` to either Markdown format for a compact count-and-gate summary suitable for `GITHUB_STEP_SUMMARY`; full Markdown includes auditable new, persisting, and resolved tables. Table-breaking pipes/newlines are escaped and `@everyone`/`@here` mass mentions are neutralized. The command performs no config scan, plugin/tool execution, arbitrary import, or network access, and exits `0` even when new findings exist. Add `--fail-on-new` for an explicit CI regression gate: JSON preserves the complete machine-readable comparison and Markdown preserves its human-readable summary on stdout, and exit `1` occurs only when the comparison contains new active findings. Comparison validates structure and canonical identity, not artifact provenance; use integrity-protected or signed reports when an attacker could rewrite stored artifacts consistently.
 
 ## Example
 
@@ -135,6 +139,8 @@ PYTHONPATH=src python -m agent_config_linter.cli --report-schema --format json
 PYTHONPATH=src python -m agent_config_linter.cli --validate-report docs/report-contracts/risky.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli --compare-reports docs/report-contracts/clean.json docs/report-contracts/risky.json --format json
 PYTHONPATH=src python -m agent_config_linter.cli --compare-reports docs/report-contracts/clean.json docs/report-contracts/risky.json --fail-on-new --format json
+PYTHONPATH=src python -m agent_config_linter.cli --compare-reports docs/report-contracts/clean.json docs/report-contracts/risky.json --format markdown
+PYTHONPATH=src python -m agent_config_linter.cli --compare-reports docs/report-contracts/clean.json docs/report-contracts/risky.json --fail-on-new --format github-markdown --summary-only
 PYTHONPATH=src python -m agent_config_linter.cli --version
 ```
 
@@ -147,6 +153,7 @@ Copy one of the adoption workflows from `examples/github-actions/` and replace `
 - `examples/github-actions/staged-enforcement.yml`: runs a staged CI gate with `examples/policies/staged-ci.yaml`, `--min-severity medium`, and `--fail-on high`.
 - `examples/github-actions/baseline-cleanup.yml`: runs scheduled baseline cleanup with stale and expired suppression gates.
 - `examples/github-actions/trend-summary-artifact.yml`: uploads a compact JSON report with `trend_summary` and `policy_drift` for metrics ingestion.
+- `examples/github-actions/report-comparison.yml`: compares two trusted stored reports, writes a safely escaped job summary, uploads the Markdown artifact even when the gate fails, and then enforces `--fail-on-new`.
 
 ## GitHub code scanning
 
@@ -389,7 +396,7 @@ Unsupported fields are ignored until they have fixture-backed tests. Add represe
 
 ## Roadmap
 
-The first MVP through Phase 10 are complete. Phase 11 is in progress: deterministic stored-report comparison and its opt-in `--fail-on-new` CI regression gate have shipped, while human-readable CI summaries remain planned. Phase 10 report validation and durable finding identity shipped a discoverable schema, stored-report validation, and deterministic cross-run finding fingerprints. Earlier phases shipped policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, and machine-readable discovery contracts. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
+The first MVP through Phase 11 are complete. Phase 11 shipped deterministic stored-report comparison, the opt-in `--fail-on-new` CI regression gate, safely escaped human-readable comparison summaries, and a copyable artifact workflow. Phase 10 report validation and durable finding identity shipped a discoverable schema, stored-report validation, and deterministic cross-run finding fingerprints. Earlier phases shipped policy files, baselines, staged CI gates, packaging/release automation, schema adapters, security regression coverage, compatibility testing, manifest-only rule-pack validation, declarative match-spec metadata, precision-boundary fixtures, repository scan diagnostics, finding explanations, review-only remediation suggestions, trend artifacts, policy-drift checks, installed wheel/sdist smoke coverage, extension governance, the examples gallery, and machine-readable discovery contracts. The current roadmap lives in [docs/roadmap.md](docs/roadmap.md).
 
 Current release-readiness docs:
 

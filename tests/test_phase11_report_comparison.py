@@ -1,4 +1,4 @@
-"""Phase 11, item 31: compare stored reports without rescanning configs."""
+"""Phase 11: compare stored reports and render CI-safe summaries."""
 
 import copy
 import json
@@ -419,7 +419,6 @@ class StoredReportComparisonTests(unittest.TestCase):
     def test_compare_mode_rejects_conflicts_before_opening_inputs(self):
         conflicts = (
             ["config.yaml"],
-            ["--summary-only"],
             ["--validate-report", "other.json"],
             ["--list-rules"],
             ["--policy", "policy.json"],
@@ -476,7 +475,7 @@ class StoredReportComparisonTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(transition["report_comparison"]["summary"]["resolved"], 1)
 
-    def test_comparison_is_json_only_and_does_not_load_or_lint_configs(self):
+    def test_comparison_formats_do_not_load_or_lint_configs(self):
         before, after = self._reports()
         with patch("agent_config_linter.cli.lint_config") as lint_config, patch(
             "agent_config_linter.cli._load_config"
@@ -488,11 +487,101 @@ class StoredReportComparisonTests(unittest.TestCase):
 
         with patch("agent_config_linter.cli._load_stored_report") as load_report:
             exit_code, output = run(
-                ["--compare-reports", "missing-before.json", "missing-after.json", "--format", "markdown"]
+                ["--compare-reports", "missing-before.json", "missing-after.json", "--format", "sarif"]
             )
         self.assertEqual(exit_code, 2)
-        self.assertIn("supports only json", json.loads(output)["errors"][0]["message"])
+        self.assertIn("supports only json, markdown, and github-markdown", json.loads(output)["errors"][0]["message"])
         load_report.assert_not_called()
+
+    def test_markdown_comparison_renders_summary_and_auditable_findings(self):
+        before, after = self._reports()
+        with tempfile.TemporaryDirectory() as directory:
+            before_path = Path(directory) / "before.json"
+            after_path = Path(directory) / "after.json"
+            before_path.write_text(json.dumps(before))
+            after_path.write_text(json.dumps(after))
+            exit_code, output = run(
+                [
+                    "--compare-reports",
+                    str(before_path),
+                    str(after_path),
+                    "--format",
+                    "markdown",
+                ]
+            )
+
+        self.assertEqual(exit_code, 0, output)
+        self.assertIn("# Agent Config Linter Report Comparison", output)
+        self.assertIn("| Before | After | New | Persisting | Resolved |", output)
+        self.assertIn("| 2 | 2 | 1 | 1 | 1 |", output)
+        self.assertIn("## New findings", output)
+        self.assertIn("## Persisting findings", output)
+        self.assertIn("## Resolved findings", output)
+        self.assertIn("ACL-004", output)
+        self.assertIn("After metadata wins", output)
+
+    def test_github_summary_only_is_ci_safe_and_preserves_gate_exit(self):
+        before, after = self._reports()
+        self._set_findings(before, [])
+        after["files"][0]["path"] = "configs/agent|prod\n@everyone.json"
+        for finding in after["files"][0]["findings"]:
+            finding.pop("fingerprint", None)
+        after["files"][0]["findings"][0]["title"] = "Break | table\r\n@here"
+        with tempfile.TemporaryDirectory() as directory:
+            before_path = Path(directory) / "before.json"
+            after_path = Path(directory) / "after.json"
+            before_path.write_text(json.dumps(before))
+            after_path.write_text(json.dumps(after))
+            exit_code, output = run(
+                [
+                    "--compare-reports",
+                    str(before_path),
+                    str(after_path),
+                    "--format",
+                    "github-markdown",
+                    "--summary-only",
+                    "--fail-on-new",
+                ]
+            )
+
+        self.assertEqual(exit_code, 1, output)
+        self.assertIn("## agent-config-linter comparison", output)
+        self.assertIn("Regression gate: **failed**", output)
+        self.assertIn("| 0 | 2 | 2 | 0 | 0 |", output)
+        self.assertNotIn("## New findings", output)
+
+        with tempfile.TemporaryDirectory() as directory:
+            before_path = Path(directory) / "before.json"
+            after_path = Path(directory) / "after.json"
+            before_path.write_text(json.dumps(before))
+            after_path.write_text(json.dumps(after))
+            detail_exit, detail = run(
+                [
+                    "--compare-reports",
+                    str(before_path),
+                    str(after_path),
+                    "--format",
+                    "github-markdown",
+                ]
+            )
+        self.assertEqual(detail_exit, 0, detail)
+        self.assertIn(r"Break \| table", detail)
+        self.assertNotIn("@everyone", detail)
+        self.assertNotIn("@here", detail)
+        self.assertNotIn("Break | table", detail)
+        self.assertEqual(cli._markdown_escape(r"left\|right"), r"left\\\|right")
+
+    def test_summary_only_requires_a_markdown_comparison_format(self):
+        before, after = self._reports()
+        exit_code, payload, _, _ = self._run_with_reports(
+            before,
+            after,
+            ("--summary-only",),
+        )
+
+        self.assertEqual(exit_code, 2)
+        self.assertIsNone(payload["report_comparison"])
+        self.assertIn("requires markdown or github-markdown", payload["errors"][0]["message"])
 
     def test_fail_on_new_is_opt_in_and_preserves_comparison_output(self):
         before, after = self._reports()
@@ -574,6 +663,33 @@ class StoredReportComparisonTests(unittest.TestCase):
         self.assertTrue(payload["report_comparison"]["gate"]["triggered"])
         self.assertEqual(len(payload["report_comparison"]["new_findings"]), 2)
 
+    def test_triggered_markdown_gate_keeps_summary_on_stdout(self):
+        before, after = self._reports()
+        self._set_findings(before, [])
+        with tempfile.TemporaryDirectory() as directory:
+            before_path = Path(directory) / "before.json"
+            after_path = Path(directory) / "after.json"
+            before_path.write_text(json.dumps(before))
+            after_path.write_text(json.dumps(after))
+            stdout = StringIO()
+            stderr = StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = cli.main(
+                    [
+                        "--compare-reports",
+                        str(before_path),
+                        str(after_path),
+                        "--format",
+                        "github-markdown",
+                        "--summary-only",
+                        "--fail-on-new",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(stderr.getvalue(), "")
+        self.assertIn("Regression gate: **failed**", stdout.getvalue())
+
     def test_comparison_errors_remain_on_stderr(self):
         stdout = StringIO()
         stderr = StringIO()
@@ -606,7 +722,10 @@ class StoredReportComparisonTests(unittest.TestCase):
         self.assertEqual(exit_code, 0, output)
         manifest = json.loads(output)
         self.assertEqual(manifest["flags"]["compare_reports"], "--compare-reports")
-        self.assertEqual(manifest["outputs"]["report_comparison_formats"], ["json"])
+        self.assertEqual(
+            manifest["outputs"]["report_comparison_formats"],
+            ["json", "markdown", "github-markdown"],
+        )
         self.assertTrue(manifest["capabilities"]["stored_report_comparison"])
         self.assertEqual(manifest["flags"]["fail_on_new"], "--fail-on-new")
 
@@ -621,12 +740,19 @@ class StoredReportComparisonTests(unittest.TestCase):
         self.assertIn("validation_error_limit", stability)
         phase_11 = roadmap[roadmap.index("## Phase 11") : roadmap.index("## Ongoing quality bar")]
         item_31 = phase_11[phase_11.index("### 31.") : phase_11.index("### 32.")]
-        self.assertIn("Phase 11 status: In progress.", phase_11)
+        self.assertIn("Phase 11 status: Shipped.", phase_11)
         self.assertIn("**Status: Shipped.**", item_31)
-        self.assertIn("**Status: Planned.**", phase_11[phase_11.index("### 32.") :])
+        self.assertNotIn("**Status: Planned.**", phase_11)
         self.assertIn("--fail-on-new", readme)
         item_32 = phase_11[phase_11.index("### 32.") : phase_11.index("### 33.")]
         self.assertIn("**Status: Shipped.**", item_32)
+        item_33 = phase_11[phase_11.index("### 33.") :]
+        self.assertIn("**Status: Shipped.**", item_33)
+        workflow = (ROOT / "examples" / "github-actions" / "report-comparison.yml").read_text()
+        self.assertIn("--compare-reports", workflow)
+        self.assertIn("--format github-markdown --summary-only", workflow)
+        self.assertIn("GITHUB_STEP_SUMMARY", workflow)
+        self.assertIn("actions/upload-artifact@v5", workflow)
 
 
 if __name__ == "__main__":
